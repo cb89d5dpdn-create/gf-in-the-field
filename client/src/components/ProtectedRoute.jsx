@@ -2,9 +2,10 @@ import { Navigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
 export function ProtectedRoute({ children, requireAdmin = false }) {
-  const { session, profile } = useAuth()
+  const { session, profile, profileLoading } = useAuth()
 
-  if (session === undefined) {
+  // Still loading Supabase session, or still fetching profile for admin check
+  if (session === undefined || (session && requireAdmin && profileLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600" />

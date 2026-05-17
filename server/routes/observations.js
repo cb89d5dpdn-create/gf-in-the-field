@@ -144,7 +144,7 @@ router.post('/:id/generate', requireAuth, async (req, res, next) => {
         rsms(name),
         observation_scores(
           score, comments,
-          observation_areas(label, group_name, order_index)
+          observation_areas(id, label, group_name, order_index)
         )
       `)
       .eq('id', id)

@@ -1,11 +1,13 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { api } from '../lib/api'
 
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(undefined) // undefined = loading
   const [profile, setProfile] = useState(null)
+  const [profileLoading, setProfileLoading] = useState(false)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -22,10 +24,14 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (!session?.user) {
       setProfile(null)
+      setProfileLoading(false)
       return
     }
-    // Profile is loaded from the server API after login
-    // to include org_id, role, state
+    setProfileLoading(true)
+    api.get('/api/dashboard')
+      .then((res) => { if (res.profile) setProfile(res.profile) })
+      .catch(() => {})
+      .finally(() => setProfileLoading(false))
   }, [session])
 
   const signIn = (email, password) =>
@@ -42,7 +48,7 @@ export function AuthProvider({ children }) {
     supabase.auth.updateUser({ password: newPassword })
 
   return (
-    <AuthContext.Provider value={{ session, profile, setProfile, signIn, signOut, resetPassword, updatePassword }}>
+    <AuthContext.Provider value={{ session, profile, profileLoading, setProfile, signIn, signOut, resetPassword, updatePassword }}>
       {children}
     </AuthContext.Provider>
   )
