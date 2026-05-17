@@ -1,0 +1,210 @@
+const router = require('express').Router()
+const { requireAuth, requireAdmin } = require('../middleware/auth')
+const { supabaseAdmin } = require('../lib/supabase')
+
+// All admin routes require auth + admin role
+router.use(requireAuth, requireAdmin)
+
+// GET /api/admin/overview
+router.get('/overview', async (req, res, next) => {
+  try {
+    const { profile } = req
+
+    const { data: obs } = await supabaseAdmin
+      .from('observations')
+      .select('id, observation_scores(score)')
+      .eq('org_id', profile.org_id)
+      .in('status', ['generated', 'sent'])
+
+    const total_visits = obs?.length || 0
+
+    let avg_score = null
+    if (total_visits > 0) {
+      const allScores = obs.flatMap((o) => o.observation_scores.map((s) => s.score))
+      avg_score = allScores.length ? allScores.reduce((a, b) => a + b, 0) / allScores.length : null
+    }
+
+    const { data: rsms } = await supabaseAdmin
+      .from('rsms')
+      .select('id')
+      .eq('org_id', profile.org_id)
+
+    // Most active FSM
+    const { data: fsmActivity } = await supabaseAdmin
+      .from('observations')
+      .select('fsm_id, fsm_profiles(name)')
+      .eq('org_id', profile.org_id)
+      .in('status', ['generated', 'sent'])
+
+    let most_active_fsm = null
+    if (fsmActivity?.length) {
+      const counts = {}
+      const names = {}
+      fsmActivity.forEach((o) => {
+        counts[o.fsm_id] = (counts[o.fsm_id] || 0) + 1
+        names[o.fsm_id] = o.fsm_profiles?.name
+      })
+      const topId = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0]
+      most_active_fsm = names[topId]
+    }
+
+    res.json({
+      total_visits,
+      avg_score,
+      total_rsms: rsms?.length || 0,
+      most_active_fsm,
+    })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// GET /api/admin/fsms
+router.get('/fsms', async (req, res, next) => {
+  try {
+    const { profile } = req
+
+    const { data: fsms, error } = await supabaseAdmin
+      .from('fsm_profiles')
+      .select('id, name, state, role')
+      .eq('org_id', profile.org_id)
+      .eq('role', 'fsm')
+      .order('state')
+
+    if (error) throw error
+
+    const enriched = await Promise.all(
+      fsms.map(async (fsm) => {
+        const [{ count: rsm_count }, { data: obs }] = await Promise.all([
+          supabaseAdmin
+            .from('rsms')
+            .select('id', { count: 'exact', head: true })
+            .eq('org_id', profile.org_id)
+            .eq('fsm_id', fsm.id),
+          supabaseAdmin
+            .from('observations')
+            .select('created_at')
+            .eq('org_id', profile.org_id)
+            .eq('fsm_id', fsm.id)
+            .in('status', ['generated', 'sent'])
+            .order('created_at', { ascending: false })
+            .limit(1),
+        ])
+
+        return {
+          ...fsm,
+          rsm_count: rsm_count || 0,
+          obs_count: 0, // will be updated below
+          last_activity: obs?.[0]?.created_at || null,
+        }
+      })
+    )
+
+    // Fill obs_count
+    await Promise.all(
+      enriched.map(async (fsm, i) => {
+        const { count } = await supabaseAdmin
+          .from('observations')
+          .select('id', { count: 'exact', head: true })
+          .eq('org_id', profile.org_id)
+          .eq('fsm_id', fsm.id)
+          .in('status', ['generated', 'sent'])
+
+        enriched[i].obs_count = count || 0
+      })
+    )
+
+    res.json({ fsms: enriched })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// GET /api/admin/fsms/:id
+router.get('/fsms/:id', async (req, res, next) => {
+  try {
+    const { profile } = req
+    const { id } = req.params
+
+    const { data: fsm, error: fsmError } = await supabaseAdmin
+      .from('fsm_profiles')
+      .select('id, name, state')
+      .eq('id', id)
+      .eq('org_id', profile.org_id)
+      .single()
+
+    if (fsmError || !fsm) return res.status(404).json({ error: 'FSM not found' })
+
+    const { data: rsms } = await supabaseAdmin
+      .from('rsms')
+      .select('id, name, state')
+      .eq('org_id', profile.org_id)
+      .eq('fsm_id', id)
+      .order('name')
+
+    // Add obs count per RSM
+    const enrichedRSMs = await Promise.all(
+      (rsms || []).map(async (rsm) => {
+        const { count } = await supabaseAdmin
+          .from('observations')
+          .select('id', { count: 'exact', head: true })
+          .eq('org_id', profile.org_id)
+          .eq('rsm_id', rsm.id)
+          .in('status', ['generated', 'sent'])
+
+        return { ...rsm, obs_count: count || 0 }
+      })
+    )
+
+    res.json({ fsm, rsms: enrichedRSMs })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// GET /api/admin/rsms/:id
+router.get('/rsms/:id', async (req, res, next) => {
+  try {
+    const { profile } = req
+    const { id } = req.params
+
+    const { data: rsm, error: rsmError } = await supabaseAdmin
+      .from('rsms')
+      .select('id, name, state')
+      .eq('id', id)
+      .eq('org_id', profile.org_id)
+      .single()
+
+    if (rsmError || !rsm) return res.status(404).json({ error: 'RSM not found' })
+
+    const { data: observations, error: obsError } = await supabaseAdmin
+      .from('observations')
+      .select(`
+        id, visit_date, location, status, ai_summary, edited_summary,
+        observation_scores(
+          area_id, score, comments,
+          observation_areas(label, group_name)
+        ),
+        fsm_profiles(name)
+      `)
+      .eq('org_id', profile.org_id)
+      .eq('rsm_id', id)
+      .order('visit_date', { ascending: false })
+
+    if (obsError) throw obsError
+
+    const enriched = observations.map((obs) => {
+      const scores = obs.observation_scores || []
+      const avg_score = scores.length
+        ? scores.reduce((sum, s) => sum + s.score, 0) / scores.length
+        : null
+      return { ...obs, avg_score }
+    })
+
+    res.json({ rsm, observations: enriched })
+  } catch (err) {
+    next(err)
+  }
+})
+
+module.exports = router
