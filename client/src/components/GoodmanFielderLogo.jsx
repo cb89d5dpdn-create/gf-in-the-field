@@ -1,13 +1,15 @@
-// Placeholder logo — replace with actual Goodman Fielder asset when supplied
-export function GoodmanFielderLogo({ className = '' }) {
+export function GoodmanFielderLogo({ className = '', size = 'default' }) {
+  const sizeClasses = {
+    small: 'h-12',
+    default: 'h-20',
+    large: 'h-32'
+  }
+
   return (
-    <div className={`flex flex-col items-center gap-2 ${className}`}>
-      <div className="w-24 h-24 bg-red-600 rounded-full flex items-center justify-center">
-        <span className="text-white font-bold text-2xl tracking-tight">GF</span>
-      </div>
-      <span className="text-gray-700 font-semibold text-sm tracking-widest uppercase">
-        Goodman Fielder
-      </span>
-    </div>
+    <img 
+      src="/gf-logo.jpg" 
+      alt="Goodman Fielder" 
+      className={`${sizeClasses[size]} w-auto object-contain ${className}`}
+    />
   )
 }

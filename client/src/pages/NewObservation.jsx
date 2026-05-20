@@ -19,8 +19,8 @@ function ScoreButton({ value, selected, onClick }) {
       onClick={() => onClick(value)}
       className={`flex-1 py-3 rounded-full text-sm font-medium border transition-colors ${
         selected
-          ? 'bg-red-600 text-white border-red-600'
-          : 'bg-white text-gray-700 border-gray-300 hover:border-red-400'
+          ? 'bg-gf-teal text-white border-gf-teal'
+          : 'bg-white text-gray-700 border-gray-300 hover:border-gf-teal'
       }`}
     >
       {value}
@@ -42,14 +42,14 @@ function StepSelectRSM({ rsms, onSelect }) {
         placeholder="Search by name..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-500"
+        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-gf-teal"
       />
       <div className="space-y-2">
         {filtered.map((rsm) => (
           <button
             key={rsm.id}
             onClick={() => onSelect(rsm)}
-            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-4 text-left hover:border-red-400 transition-colors"
+            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-4 text-left hover:border-gf-teal transition-colors"
           >
             <p className="font-semibold text-gray-900">{rsm.name}</p>
             <p className="text-sm text-gray-500">{rsm.state}</p>
@@ -80,7 +80,7 @@ function StepDetails({ rsm, onNext }) {
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
-          className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-500"
+          className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-gf-teal"
         />
       </div>
       <div>
@@ -92,13 +92,13 @@ function StepDetails({ rsm, onNext }) {
           value={location}
           onChange={(e) => setLocation(e.target.value)}
           placeholder="e.g. Woolworths Parramatta"
-          className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-500"
+          className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-gf-teal"
         />
       </div>
       <button
         onClick={() => onNext({ date, location })}
         disabled={!date}
-        className="w-full bg-red-600 text-white font-semibold py-4 rounded-xl hover:bg-red-700 disabled:opacity-50 transition-colors"
+        className="w-full bg-gf-teal text-white font-semibold py-4 rounded-xl hover:bg-gf-dark disabled:opacity-50 transition-colors"
       >
         Continue
       </button>
@@ -128,7 +128,7 @@ function StepScoring({ areas, scores, comments, onChange, onComment, onGenerate,
       {/* Progress bar */}
       <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
         <div
-          className="h-full bg-red-600 rounded-full transition-all"
+          className="h-full bg-gf-teal rounded-full transition-all"
           style={{ width: `${(scored / total) * 100}%` }}
         />
       </div>
@@ -163,7 +163,7 @@ function StepScoring({ areas, scores, comments, onChange, onComment, onGenerate,
                   onChange={(e) => onComment(area.id, e.target.value)}
                   placeholder="Key observations / examples... (optional)"
                   rows={2}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-400 resize-none"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gf-teal resize-none"
                 />
               </div>
             ))}
@@ -177,7 +177,7 @@ function StepScoring({ areas, scores, comments, onChange, onComment, onGenerate,
           <button
             onClick={onGenerate}
             disabled={!allScored || generating}
-            className="w-full bg-red-600 text-white font-semibold py-4 rounded-xl hover:bg-red-700 disabled:opacity-50 transition-colors text-base"
+            className="w-full bg-gf-teal text-white font-semibold py-4 rounded-xl hover:bg-gf-dark disabled:opacity-50 transition-colors text-base"
           >
             {generating ? (
               <span className="flex items-center justify-center gap-2">
@@ -227,7 +227,7 @@ function StepReview({ observation, summary, onSummaryChange, onSend, sending }) 
           value={summary}
           onChange={(e) => onSummaryChange(e.target.value)}
           rows={12}
-          className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-400 resize-none"
+          className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gf-teal resize-none"
         />
       </div>
 
@@ -236,7 +236,7 @@ function StepReview({ observation, summary, onSummaryChange, onSend, sending }) 
           <button
             onClick={onSend}
             disabled={sending || !summary.trim()}
-            className="w-full bg-red-600 text-white font-semibold py-4 rounded-xl hover:bg-red-700 disabled:opacity-50 transition-colors text-base"
+            className="w-full bg-gf-teal text-white font-semibold py-4 rounded-xl hover:bg-gf-dark disabled:opacity-50 transition-colors text-base"
           >
             {sending ? 'Sending...' : 'Send to My Email'}
           </button>
@@ -343,7 +343,7 @@ export function NewObservation() {
         {[1, 2, 3, 4].map((s) => (
           <div
             key={s}
-            className={`flex-1 h-1 rounded-full ${s <= step ? 'bg-red-600' : 'bg-gray-200'}`}
+            className={`flex-1 h-1 rounded-full ${s <= step ? 'bg-gf-teal' : 'bg-gray-200'}`}
           />
         ))}
       </div>

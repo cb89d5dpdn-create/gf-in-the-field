@@ -101,7 +101,7 @@ export function RSMHistory() {
 
       {loading ? (
         <div className="flex justify-center py-16">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600" />
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gf-teal" />
         </div>
       ) : error ? (
         <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">{error}</div>
@@ -109,7 +109,7 @@ export function RSMHistory() {
         <>
           <button
             onClick={() => setSelectedObs(null)}
-            className="text-sm text-red-600 hover:underline mb-4 min-h-0"
+            className="text-sm text-gf-teal hover:underline mb-4 min-h-0"
           >
             &larr; Back to history
           </button>

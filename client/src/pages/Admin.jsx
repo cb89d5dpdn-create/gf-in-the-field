@@ -44,11 +44,11 @@ function FSMDetail({ fsmId, onBack }) {
     api.get(`/api/admin/fsms/${fsmId}`).then(setData).finally(() => setLoading(false))
   }, [fsmId])
 
-  if (loading) return <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-600" /></div>
+  if (loading) return <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gf-teal" /></div>
 
   return (
     <div className="space-y-4">
-      <button onClick={onBack} className="text-sm text-red-600 hover:underline min-h-0">&larr; Back</button>
+      <button onClick={onBack} className="text-sm text-gf-teal hover:underline min-h-0">&larr; Back</button>
       <h2 className="text-lg font-bold text-gray-900">{data?.fsm?.name} — {data?.fsm?.state}</h2>
       <div className="space-y-2">
         {data?.rsms?.map((rsm) => (
@@ -91,7 +91,7 @@ export function Admin() {
 
       {loading ? (
         <div className="flex justify-center py-16">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600" />
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gf-teal" />
         </div>
       ) : selectedFSM ? (
         <FSMDetail fsmId={selectedFSM} onBack={() => setSelectedFSM(null)} />

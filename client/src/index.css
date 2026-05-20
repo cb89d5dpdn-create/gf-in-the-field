@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+@theme {
+  /* Goodman Fielder Brand Colors */
+  --color-gf-teal: #006B7D;
+  --color-gf-yellow: #FFD100;
+  --color-gf-green: #B8D430;
+  --color-gf-blue: #00A9E0;
+  --color-gf-dark: #003D47;
+}
+
 /* Base mobile-first resets */
 * {
   -webkit-tap-highlight-color: transparent;

@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { api } from '../lib/api'
 
 const SCORE_COLORS = {
-  red: 'bg-red-500',
+  red: 'bg-gf-blue',
   yellow: 'bg-yellow-400',
   green: 'bg-green-500',
 }
@@ -67,7 +67,7 @@ export function Dashboard() {
     <Layout>
       {loading ? (
         <div className="flex justify-center py-16">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600" />
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gf-teal" />
         </div>
       ) : error ? (
         <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
@@ -84,7 +84,7 @@ export function Dashboard() {
 
           <button
             onClick={() => navigate('/observations/new')}
-            className="w-full bg-red-600 text-white font-semibold py-4 rounded-xl mb-6 hover:bg-red-700 active:bg-red-800 transition-colors text-base"
+            className="w-full bg-gf-teal text-white font-semibold py-4 rounded-xl mb-6 hover:bg-gf-dark active:bg-gf-dark transition-colors text-base"
           >
             + Start New Observation
           </button>
