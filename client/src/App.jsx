@@ -8,6 +8,7 @@ import { NewObservation } from './pages/NewObservation'
 import { RSMHistory } from './pages/RSMHistory'
 import { Admin } from './pages/Admin'
 import { ResetPassword } from './pages/ResetPassword'
+import { ChangePassword } from './pages/ChangePassword'
 
 function App() {
   return (
@@ -22,6 +23,14 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route
+            path="/change-password"
+            element={
+              <ProtectedRoute>
+                <ChangePassword />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/"
             element={

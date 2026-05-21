@@ -27,6 +27,12 @@ export function Layout({ children }) {
                 {profile.name} · {profile.state}
               </span>
             )}
+            <Link
+              to="/change-password"
+              className="text-xs text-white/90 hover:text-white px-2 py-1 rounded min-h-0 transition-colors"
+            >
+              Change Password
+            </Link>
             <button
               onClick={handleSignOut}
               className="text-xs text-white/90 hover:text-white px-2 py-1 rounded min-h-0 transition-colors"

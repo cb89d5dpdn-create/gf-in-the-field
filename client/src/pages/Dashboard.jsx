@@ -102,6 +102,15 @@ export function Dashboard() {
               ))
             )}
           </div>
+
+          {/* ROGER branding footer */}
+          <div className="mt-12 mb-6 flex justify-center">
+            <img 
+              src="/roger-logo.jpg" 
+              alt="Powered by ROGER" 
+              className="h-20 opacity-60 hover:opacity-100 transition-opacity"
+            />
+          </div>
         </>
       )}
     </Layout>
