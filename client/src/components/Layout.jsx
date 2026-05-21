@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { GoodmanFielderLogo } from './GoodmanFielderLogo'
@@ -7,6 +7,19 @@ export function Layout({ children }) {
   const { profile, signOut } = useAuth()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [viewMode, setViewMode] = useState(() => {
+    return localStorage.getItem('viewMode') || 'mobile'
+  })
+
+  useEffect(() => {
+    localStorage.setItem('viewMode', viewMode)
+  }, [viewMode])
+
+  const toggleViewMode = () => {
+    setViewMode(viewMode === 'mobile' ? 'desktop' : 'mobile')
+  }
+
+  const maxWidth = viewMode === 'desktop' ? 'max-w-6xl' : 'max-w-2xl'
 
   const handleSignOut = async () => {
     await signOut()
@@ -55,13 +68,22 @@ export function Layout({ children }) {
             </Link>
 
             {profile?.role === 'admin' && (
-              <Link
-                to="/admin/users"
-                onClick={() => setMenuOpen(false)}
-                className="block px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                Manage Users
-              </Link>
+              <>
+                <Link
+                  to="/admin/users"
+                  onClick={() => setMenuOpen(false)}
+                  className="block px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  Manage Users
+                </Link>
+
+                <button
+                  onClick={() => { toggleViewMode(); setMenuOpen(false); }}
+                  className="w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  View: {viewMode === 'mobile' ? 'Mobile 📱' : 'Desktop 💻'}
+                </button>
+              </>
             )}
 
             <button
@@ -75,7 +97,7 @@ export function Layout({ children }) {
       </div>
 
       <header className="bg-gf-teal sticky top-0 z-30 shadow-md">
-        <div className="max-w-2xl mx-auto px-4 flex items-center justify-between h-16">
+        <div className={`${maxWidth} mx-auto px-4 flex items-center justify-between h-16`}>
           <Link to="/" className="flex items-center gap-3 min-h-0">
             <GoodmanFielderLogo size="small" className="h-10" />
             <span className="font-semibold text-white text-sm hidden xs:block">
@@ -92,7 +114,7 @@ export function Layout({ children }) {
           </button>
         </div>
       </header>
-      <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-6">
+      <main className={`flex-1 ${maxWidth} mx-auto w-full px-4 py-6`}>
         {children}
       </main>
     </div>
