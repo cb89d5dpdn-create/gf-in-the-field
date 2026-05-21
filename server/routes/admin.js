@@ -254,4 +254,131 @@ router.get('/rsms/:id', async (req, res, next) => {
   }
 })
 
+// POST /api/admin/fsms — create new FSM (auth user + profile)
+router.post('/fsms', async (req, res, next) => {
+  try {
+    const { profile } = req
+    const { name, email, state, password } = req.body
+
+    if (!name || !email || !state || !password) {
+      return res.status(400).json({ error: 'name, email, state, and password required' })
+    }
+
+    // Create Supabase auth user
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+    })
+
+    if (authError) throw new Error(authError.message)
+
+    // Create FSM profile
+    const { data: fsmProfile, error: profileError } = await supabaseAdmin
+      .from('fsm_profiles')
+      .insert({
+        org_id: profile.org_id,
+        user_id: authData.user.id,
+        name,
+        state,
+        role: 'fsm',
+      })
+      .select()
+      .single()
+
+    if (profileError) {
+      // Rollback: delete auth user
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
+      throw profileError
+    }
+
+    res.status(201).json({ fsm: fsmProfile })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// DELETE /api/admin/fsms/:id
+router.delete('/fsms/:id', async (req, res, next) => {
+  try {
+    const { profile } = req
+    const { id } = req.params
+
+    // Get FSM to find user_id
+    const { data: fsm, error: fetchError } = await supabaseAdmin
+      .from('fsm_profiles')
+      .select('id, user_id')
+      .eq('id', id)
+      .eq('org_id', profile.org_id)
+      .single()
+
+    if (fetchError || !fsm) return res.status(404).json({ error: 'FSM not found' })
+
+    // Delete profile
+    const { error: deleteError } = await supabaseAdmin
+      .from('fsm_profiles')
+      .delete()
+      .eq('id', id)
+
+    if (deleteError) throw deleteError
+
+    // Delete auth user
+    await supabaseAdmin.auth.admin.deleteUser(fsm.user_id)
+
+    res.json({ success: true })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// POST /api/admin/rsms — create new RSM
+router.post('/rsms', async (req, res, next) => {
+  try {
+    const { profile } = req
+    const { name, state, email, fsm_id } = req.body
+
+    if (!name || !state || !fsm_id) {
+      return res.status(400).json({ error: 'name, state, and fsm_id required' })
+    }
+
+    const { data: rsm, error } = await supabaseAdmin
+      .from('rsms')
+      .insert({
+        org_id: profile.org_id,
+        fsm_id,
+        name,
+        state,
+        email: email || null,
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+
+    res.status(201).json({ rsm })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// DELETE /api/admin/rsms/:id
+router.delete('/rsms/:id', async (req, res, next) => {
+  try {
+    const { profile } = req
+    const { id } = req.params
+
+    const { error } = await supabaseAdmin
+      .from('rsms')
+      .delete()
+      .eq('id', id)
+      .eq('org_id', profile.org_id)
+
+    if (error) throw error
+
+    res.json({ success: true })
+  } catch (err) {
+    next(err)
+  }
+})
+
 module.exports = router

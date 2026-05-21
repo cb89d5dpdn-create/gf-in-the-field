@@ -39,6 +39,14 @@ export function Layout({ children }) {
           {/* Menu items */}
           <nav className="space-y-2">
             <Link
+              to="/"
+              onClick={() => setMenuOpen(false)}
+              className="block px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              Home
+            </Link>
+
+            <Link
               to="/change-password"
               onClick={() => setMenuOpen(false)}
               className="block px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"

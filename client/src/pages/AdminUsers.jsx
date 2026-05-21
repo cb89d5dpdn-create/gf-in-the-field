@@ -9,6 +9,19 @@ export function AdminUsers() {
   const [rsms, setRsms] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [adding, setAdding] = useState(false)
+
+  // FSM form state
+  const [fsmName, setFsmName] = useState('')
+  const [fsmEmail, setFsmEmail] = useState('')
+  const [fsmState, setFsmState] = useState('NSW')
+  const [fsmPassword, setFsmPassword] = useState('')
+
+  // RSM form state
+  const [rsmName, setRsmName] = useState('')
+  const [rsmEmail, setRsmEmail] = useState('')
+  const [rsmState, setRsmState] = useState('NSW')
+  const [rsmFsmId, setRsmFsmId] = useState('')
 
   useEffect(() => {
     loadData()
@@ -20,10 +33,86 @@ export function AdminUsers() {
       const data = await api.get('/api/admin/users')
       setFsms(data.fsms || [])
       setRsms(data.rsms || [])
+      if (data.fsms?.length && !rsmFsmId) {
+        setRsmFsmId(data.fsms[0].id)
+      }
     } catch (e) {
       toast.error(e.message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleAddFSM = async (e) => {
+    e.preventDefault()
+    if (fsmPassword.length < 8) {
+      toast.error('Password must be at least 8 characters')
+      return
+    }
+    setAdding(true)
+    try {
+      await api.post('/api/admin/fsms', {
+        name: fsmName,
+        email: fsmEmail,
+        state: fsmState,
+        password: fsmPassword,
+      })
+      toast.success('FSM added successfully')
+      setShowAddModal(false)
+      setFsmName('')
+      setFsmEmail('')
+      setFsmState('NSW')
+      setFsmPassword('')
+      loadData()
+    } catch (e) {
+      toast.error(e.message)
+    } finally {
+      setAdding(false)
+    }
+  }
+
+  const handleAddRSM = async (e) => {
+    e.preventDefault()
+    setAdding(true)
+    try {
+      await api.post('/api/admin/rsms', {
+        name: rsmName,
+        email: rsmEmail || null,
+        state: rsmState,
+        fsm_id: rsmFsmId,
+      })
+      toast.success('RSM added successfully')
+      setShowAddModal(false)
+      setRsmName('')
+      setRsmEmail('')
+      setRsmState('NSW')
+      loadData()
+    } catch (e) {
+      toast.error(e.message)
+    } finally {
+      setAdding(false)
+    }
+  }
+
+  const handleDeleteFSM = async (id, name) => {
+    if (!confirm(`Delete ${name}? This will also delete their auth account.`)) return
+    try {
+      await api.delete(`/api/admin/fsms/${id}`)
+      toast.success('FSM deleted')
+      loadData()
+    } catch (e) {
+      toast.error(e.message)
+    }
+  }
+
+  const handleDeleteRSM = async (id, name) => {
+    if (!confirm(`Delete ${name}?`)) return
+    try {
+      await api.delete(`/api/admin/rsms/${id}`)
+      toast.success('RSM deleted')
+      loadData()
+    } catch (e) {
+      toast.error(e.message)
     }
   }
 
@@ -85,12 +174,7 @@ export function AdminUsers() {
                         <p className="text-xs text-gray-400 mt-1">{fsm.state}</p>
                       </div>
                       <button
-                        onClick={() => {
-                          if (confirm(`Delete ${fsm.name}?`)) {
-                            // TODO: implement delete
-                            toast.success('Delete coming soon')
-                          }
-                        }}
+                        onClick={() => handleDeleteFSM(fsm.id, fsm.name)}
                         className="text-red-600 text-sm hover:underline"
                       >
                         Delete
@@ -121,12 +205,7 @@ export function AdminUsers() {
                         </p>
                       </div>
                       <button
-                        onClick={() => {
-                          if (confirm(`Delete ${rsm.name}?`)) {
-                            // TODO: implement delete
-                            toast.success('Delete coming soon')
-                          }
-                        }}
+                        onClick={() => handleDeleteRSM(rsm.id, rsm.name)}
                         className="text-red-600 text-sm hover:underline"
                       >
                         Delete
@@ -140,22 +219,175 @@ export function AdminUsers() {
         </>
       )}
 
-      {/* Add Modal - TODO: implement full form */}
+      {/* Add Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
             <h2 className="text-lg font-bold text-gray-900 mb-4">
               Add {tab === 'fsm' ? 'FSM' : 'RSM'}
             </h2>
-            <p className="text-gray-600 text-sm mb-4">
-              Coming soon! This will allow you to add new {tab === 'fsm' ? 'FSMs' : 'RSMs'}.
-            </p>
-            <button
-              onClick={() => setShowAddModal(false)}
-              className="w-full bg-gray-200 text-gray-700 font-semibold py-3 rounded-lg hover:bg-gray-300 transition-colors"
-            >
-              Close
-            </button>
+
+            {tab === 'fsm' ? (
+              <form onSubmit={handleAddFSM} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={fsmName}
+                    onChange={(e) => setFsmName(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-gf-teal"
+                    placeholder="John Smith"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={fsmEmail}
+                    onChange={(e) => setFsmEmail(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-gf-teal"
+                    placeholder="john@example.com"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    State
+                  </label>
+                  <select
+                    value={fsmState}
+                    onChange={(e) => setFsmState(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-gf-teal"
+                  >
+                    <option value="NSW">NSW</option>
+                    <option value="VIC">VIC</option>
+                    <option value="QLD">QLD</option>
+                    <option value="WA">WA</option>
+                    <option value="SA/NT">SA/NT</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Initial Password
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    minLength={8}
+                    value={fsmPassword}
+                    onChange={(e) => setFsmPassword(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-gf-teal"
+                    placeholder="Min 8 characters"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddModal(false)}
+                    className="flex-1 bg-gray-200 text-gray-700 font-semibold py-3 rounded-lg hover:bg-gray-300 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={adding}
+                    className="flex-1 bg-gf-teal text-white font-semibold py-3 rounded-lg hover:bg-gf-dark disabled:opacity-50 transition-colors"
+                  >
+                    {adding ? 'Adding...' : 'Add FSM'}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={handleAddRSM} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={rsmName}
+                    onChange={(e) => setRsmName(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-gf-teal"
+                    placeholder="Jane Doe"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email <span className="text-gray-400 font-normal">(optional)</span>
+                  </label>
+                  <input
+                    type="email"
+                    value={rsmEmail}
+                    onChange={(e) => setRsmEmail(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-gf-teal"
+                    placeholder="jane@example.com"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    State
+                  </label>
+                  <select
+                    value={rsmState}
+                    onChange={(e) => setRsmState(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-gf-teal"
+                  >
+                    <option value="NSW">NSW</option>
+                    <option value="VIC">VIC</option>
+                    <option value="QLD">QLD</option>
+                    <option value="WA">WA</option>
+                    <option value="SA/NT">SA/NT</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Assign to FSM
+                  </label>
+                  <select
+                    value={rsmFsmId}
+                    onChange={(e) => setRsmFsmId(e.target.value)}
+                    required
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-gf-teal"
+                  >
+                    {fsms.map((fsm) => (
+                      <option key={fsm.id} value={fsm.id}>
+                        {fsm.name} ({fsm.state})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddModal(false)}
+                    className="flex-1 bg-gray-200 text-gray-700 font-semibold py-3 rounded-lg hover:bg-gray-300 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={adding}
+                    className="flex-1 bg-gf-teal text-white font-semibold py-3 rounded-lg hover:bg-gf-dark disabled:opacity-50 transition-colors"
+                  >
+                    {adding ? 'Adding...' : 'Add RSM'}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}
