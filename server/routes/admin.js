@@ -254,6 +254,84 @@ router.get('/rsms/:id', async (req, res, next) => {
   }
 })
 
+// POST /api/admin/admins — create new admin (auth user + profile)
+router.post('/admins', async (req, res, next) => {
+  try {
+    const { profile } = req
+    const { name, email, password } = req.body
+
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: 'name, email, and password required' })
+    }
+
+    // Create Supabase auth user
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+    })
+
+    if (authError) throw new Error(authError.message)
+
+    // Create admin profile
+    const { data: adminProfile, error: profileError } = await supabaseAdmin
+      .from('fsm_profiles')
+      .insert({
+        org_id: profile.org_id,
+        user_id: authData.user.id,
+        name,
+        state: 'NSW', // Default for admins
+        role: 'admin',
+      })
+      .select()
+      .single()
+
+    if (profileError) {
+      // Rollback: delete auth user
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
+      throw profileError
+    }
+
+    res.status(201).json({ admin: adminProfile })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// DELETE /api/admin/admins/:id
+router.delete('/admins/:id', async (req, res, next) => {
+  try {
+    const { profile } = req
+    const { id } = req.params
+
+    // Get admin to find user_id
+    const { data: admin, error: fetchError } = await supabaseAdmin
+      .from('fsm_profiles')
+      .select('id, user_id')
+      .eq('id', id)
+      .eq('org_id', profile.org_id)
+      .eq('role', 'admin')
+      .single()
+
+    if (fetchError || !admin) return res.status(404).json({ error: 'Admin not found' })
+
+    // Delete profile
+    const { error: deleteError } = await supabaseAdmin
+      .from('fsm_profiles')
+      .delete()
+      .eq('id', id)
+
+    if (deleteError) throw deleteError
+
+    // Delete auth user
+    await supabaseAdmin.auth.admin.deleteUser(admin.user_id)
+
+    res.json({ success: true })
+  } catch (err) {
+    next(err)
+  }
+})
+
 // POST /api/admin/fsms — create new FSM (auth user + profile)
 router.post('/fsms', async (req, res, next) => {
   try {

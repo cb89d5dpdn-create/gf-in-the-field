@@ -4,12 +4,18 @@ import { api } from '../lib/api'
 import toast from 'react-hot-toast'
 
 export function AdminUsers() {
-  const [tab, setTab] = useState('fsm') // 'fsm' or 'rsm'
+  const [tab, setTab] = useState('admin') // 'admin', 'fsm', or 'rsm'
+  const [admins, setAdmins] = useState([])
   const [fsms, setFsms] = useState([])
   const [rsms, setRsms] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
   const [adding, setAdding] = useState(false)
+
+  // Admin form state
+  const [adminName, setAdminName] = useState('')
+  const [adminEmail, setAdminEmail] = useState('')
+  const [adminPassword, setAdminPassword] = useState('')
 
   // FSM form state
   const [fsmName, setFsmName] = useState('')
@@ -31,15 +37,45 @@ export function AdminUsers() {
     setLoading(true)
     try {
       const data = await api.get('/api/admin/users')
-      setFsms(data.fsms || [])
+      // Separate admins from FSMs
+      const allUsers = data.fsms || []
+      setAdmins(allUsers.filter(u => u.role === 'admin'))
+      setFsms(allUsers.filter(u => u.role === 'fsm'))
       setRsms(data.rsms || [])
-      if (data.fsms?.length && !rsmFsmId) {
-        setRsmFsmId(data.fsms[0].id)
+      const actualFsms = (data.fsms || []).filter(u => u.role === 'fsm')
+      if (actualFsms.length && !rsmFsmId) {
+        setRsmFsmId(actualFsms[0].id)
       }
     } catch (e) {
       toast.error(e.message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleAddAdmin = async (e) => {
+    e.preventDefault()
+    if (adminPassword.length < 8) {
+      toast.error('Password must be at least 8 characters')
+      return
+    }
+    setAdding(true)
+    try {
+      await api.post('/api/admin/admins', {
+        name: adminName,
+        email: adminEmail,
+        password: adminPassword,
+      })
+      toast.success('Admin added successfully')
+      setShowAddModal(false)
+      setAdminName('')
+      setAdminEmail('')
+      setAdminPassword('')
+      loadData()
+    } catch (e) {
+      toast.error(e.message)
+    } finally {
+      setAdding(false)
     }
   }
 
@@ -94,6 +130,17 @@ export function AdminUsers() {
     }
   }
 
+  const handleDeleteAdmin = async (id, name) => {
+    if (!confirm(`Delete admin ${name}? This will also delete their auth account.`)) return
+    try {
+      await api.delete(`/api/admin/admins/${id}`)
+      toast.success('Admin deleted')
+      loadData()
+    } catch (e) {
+      toast.error(e.message)
+    }
+  }
+
   const handleDeleteFSM = async (id, name) => {
     if (!confirm(`Delete ${name}? This will also delete their auth account.`)) return
     try {
@@ -122,6 +169,16 @@ export function AdminUsers() {
 
       {/* Tabs */}
       <div className="flex gap-2 mb-6 border-b border-gray-200">
+        <button
+          onClick={() => setTab('admin')}
+          className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+            tab === 'admin' 
+              ? 'border-gf-teal text-gf-teal' 
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Admins
+        </button>
         <button
           onClick={() => setTab('fsm')}
           className={`px-4 py-2 font-medium border-b-2 transition-colors ${
@@ -154,8 +211,37 @@ export function AdminUsers() {
             onClick={() => setShowAddModal(true)}
             className="w-full bg-gf-teal text-white font-semibold py-3 rounded-xl mb-6 hover:bg-gf-dark transition-colors"
           >
-            + Add {tab === 'fsm' ? 'FSM' : 'RSM'}
+            + Add {tab === 'admin' ? 'Admin' : tab === 'fsm' ? 'FSM' : 'RSM'}
           </button>
+
+          {tab === 'admin' && (
+            <div className="space-y-3">
+              {admins.length === 0 ? (
+                <p className="text-gray-500 text-sm text-center py-8">No admins yet.</p>
+              ) : (
+                admins.map((admin) => (
+                  <div
+                    key={admin.id}
+                    className="bg-white border border-gray-200 rounded-xl px-4 py-4"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-semibold text-gray-900">{admin.name}</p>
+                        <p className="text-sm text-gray-500">{admin.email}</p>
+                        <p className="text-xs text-gray-400 mt-1">Admin</p>
+                      </div>
+                      <button
+                        onClick={() => handleDeleteAdmin(admin.id, admin.name)}
+                        className="text-red-600 text-sm hover:underline"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
 
           {tab === 'fsm' && (
             <div className="space-y-3">
@@ -224,10 +310,72 @@ export function AdminUsers() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
           <div className="bg-white rounded-xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
             <h2 className="text-lg font-bold text-gray-900 mb-4">
-              Add {tab === 'fsm' ? 'FSM' : 'RSM'}
+              Add {tab === 'admin' ? 'Admin' : tab === 'fsm' ? 'FSM' : 'RSM'}
             </h2>
 
-            {tab === 'fsm' ? (
+            {tab === 'admin' ? (
+              <form onSubmit={handleAddAdmin} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={adminName}
+                    onChange={(e) => setAdminName(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-gf-teal"
+                    placeholder="John Smith"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={adminEmail}
+                    onChange={(e) => setAdminEmail(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-gf-teal"
+                    placeholder="john@goodmanfielder.com.au"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Initial Password
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    minLength={8}
+                    value={adminPassword}
+                    onChange={(e) => setAdminPassword(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-gf-teal"
+                    placeholder="Min 8 characters"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddModal(false)}
+                    className="flex-1 bg-gray-200 text-gray-700 font-semibold py-3 rounded-lg hover:bg-gray-300 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={adding}
+                    className="flex-1 bg-gf-teal text-white font-semibold py-3 rounded-lg hover:bg-gf-dark disabled:opacity-50 transition-colors"
+                  >
+                    {adding ? 'Adding...' : 'Add Admin'}
+                  </button>
+                </div>
+              </form>
+            ) : tab === 'fsm' ? (
               <form onSubmit={handleAddFSM} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
