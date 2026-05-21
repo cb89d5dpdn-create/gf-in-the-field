@@ -8,18 +8,18 @@ router.get('/', requireAuth, async (req, res, next) => {
   try {
     const { profile } = req
 
-    // Admin redirect hint — admin should use /api/admin/overview
-    if (profile.role === 'admin') {
-      return res.json({ profile, rsms: [], isAdmin: true })
-    }
-
-    // Fetch RSMs for this FSM
-    const { data: rsms, error: rsmsError } = await supabaseAdmin
+    // Fetch RSMs — admin sees all, FSM sees only their own
+    let rsmQuery = supabaseAdmin
       .from('rsms')
       .select('id, name, state')
       .eq('org_id', profile.org_id)
-      .eq('fsm_id', profile.id)
       .order('name')
+
+    if (profile.role !== 'admin') {
+      rsmQuery = rsmQuery.eq('fsm_id', profile.id)
+    }
+
+    const { data: rsms, error: rsmsError } = await rsmQuery
 
     if (rsmsError) throw rsmsError
 

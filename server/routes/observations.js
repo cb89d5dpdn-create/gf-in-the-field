@@ -16,19 +16,22 @@ const SCORE_LABELS = {
 router.post('/', requireAuth, async (req, res, next) => {
   try {
     const { profile } = req
-    if (profile.role === 'admin') return res.status(403).json({ error: 'Admin cannot submit observations' })
 
     const { rsm_id, visit_date, location } = req.body
     if (!rsm_id || !visit_date) return res.status(400).json({ error: 'rsm_id and visit_date required' })
 
-    // Verify RSM belongs to this FSM + org
-    const { data: rsm, error: rsmError } = await supabaseAdmin
+    // Verify RSM belongs to org (admin can access any RSM, FSM only their own)
+    let rsmQuery = supabaseAdmin
       .from('rsms')
       .select('id')
       .eq('id', rsm_id)
       .eq('org_id', profile.org_id)
-      .eq('fsm_id', profile.id)
-      .single()
+
+    if (profile.role !== 'admin') {
+      rsmQuery = rsmQuery.eq('fsm_id', profile.id)
+    }
+
+    const { data: rsm, error: rsmError } = await rsmQuery.single()
 
     if (rsmError || !rsm) return res.status(404).json({ error: 'RSM not found' })
 
@@ -89,16 +92,18 @@ router.put('/:id', requireAuth, async (req, res, next) => {
     const { id } = req.params
     const { scores } = req.body // [{ area_id, score, comments }]
 
-    if (profile.role === 'admin') return res.status(403).json({ error: 'Admin cannot update observations' })
-
-    // Verify ownership
-    const { data: obs, error: obsError } = await supabaseAdmin
+    // Verify ownership (admin can access any, FSM only their own)
+    let obsQuery = supabaseAdmin
       .from('observations')
       .select('id, status')
       .eq('id', id)
       .eq('org_id', profile.org_id)
-      .eq('fsm_id', profile.id)
-      .single()
+
+    if (profile.role !== 'admin') {
+      obsQuery = obsQuery.eq('fsm_id', profile.id)
+    }
+
+    const { data: obs, error: obsError } = await obsQuery.single()
 
     if (obsError || !obs) return res.status(404).json({ error: 'Observation not found' })
 
@@ -134,10 +139,8 @@ router.post('/:id/generate', requireAuth, async (req, res, next) => {
     const { profile } = req
     const { id } = req.params
 
-    if (profile.role === 'admin') return res.status(403).json({ error: 'Admin cannot generate summaries' })
-
-    // Load full observation with scores
-    const { data: obs, error: obsError } = await supabaseAdmin
+    // Load full observation with scores (admin can access any)
+    let genQuery = supabaseAdmin
       .from('observations')
       .select(`
         id, visit_date, location, status,
@@ -149,8 +152,12 @@ router.post('/:id/generate', requireAuth, async (req, res, next) => {
       `)
       .eq('id', id)
       .eq('org_id', profile.org_id)
-      .eq('fsm_id', profile.id)
-      .single()
+
+    if (profile.role !== 'admin') {
+      genQuery = genQuery.eq('fsm_id', profile.id)
+    }
+
+    const { data: obs, error: obsError } = await genQuery.single()
 
     if (obsError || !obs) return res.status(404).json({ error: 'Observation not found' })
 
@@ -261,10 +268,8 @@ router.post('/:id/send', requireAuth, async (req, res, next) => {
     const { id } = req.params
     const { edited_summary } = req.body
 
-    if (profile.role === 'admin') return res.status(403).json({ error: 'Admin cannot send observations' })
-
-    // Load full observation
-    const { data: obs, error: obsError } = await supabaseAdmin
+    // Load full observation (admin can access any)
+    let sendQuery = supabaseAdmin
       .from('observations')
       .select(`
         id, visit_date, location, ai_summary,
@@ -276,8 +281,12 @@ router.post('/:id/send', requireAuth, async (req, res, next) => {
       `)
       .eq('id', id)
       .eq('org_id', profile.org_id)
-      .eq('fsm_id', profile.id)
-      .single()
+
+    if (profile.role !== 'admin') {
+      sendQuery = sendQuery.eq('fsm_id', profile.id)
+    }
+
+    const { data: obs, error: obsError } = await sendQuery.single()
 
     if (obsError || !obs) return res.status(404).json({ error: 'Observation not found' })
 
