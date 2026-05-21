@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Layout } from '../components/Layout'
 import { api } from '../lib/api'
+import toast from 'react-hot-toast'
 
 const SCORE_LABELS = {
   1: 'Needs Dev',
@@ -11,7 +12,11 @@ const SCORE_LABELS = {
   5: 'Expert',
 }
 
-function ObservationDetail({ obs }) {
+function ObservationDetail({ obs, onSent }) {
+  const [summary, setSummary] = useState(obs.edited_summary || obs.ai_summary || '')
+  const [sending, setSending] = useState(false)
+  const isEditable = obs.status === 'generated'
+
   const avg = obs.scores?.length
     ? (obs.scores.reduce((sum, s) => sum + s.score, 0) / obs.scores.length).toFixed(1)
     : null
@@ -22,8 +27,23 @@ function ObservationDetail({ obs }) {
     return acc
   }, {}) || {}
 
+  const handleSend = async () => {
+    setSending(true)
+    try {
+      await api.post(`/api/observations/${obs.id}/send`, {
+        edited_summary: summary,
+      })
+      toast.success('Coaching summary sent to your email!')
+      if (onSent) onSent()
+    } catch (e) {
+      toast.error(e.message)
+    } finally {
+      setSending(false)
+    }
+  }
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-24">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm text-gray-500">{new Date(obs.visit_date).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })}</p>
@@ -60,9 +80,34 @@ function ObservationDetail({ obs }) {
 
       {(obs.edited_summary || obs.ai_summary) && (
         <div>
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Coaching Summary</p>
-          <div className="bg-white border border-gray-200 rounded-xl px-4 py-4 text-sm text-gray-700 leading-relaxed whitespace-pre-line">
-            {obs.edited_summary || obs.ai_summary}
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+            Coaching Summary {isEditable && <span className="font-normal text-gray-400">(edit before sending)</span>}
+          </p>
+          {isEditable ? (
+            <textarea
+              value={summary}
+              onChange={(e) => setSummary(e.target.value)}
+              rows={12}
+              className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gf-teal resize-none"
+            />
+          ) : (
+            <div className="bg-white border border-gray-200 rounded-xl px-4 py-4 text-sm text-gray-700 leading-relaxed whitespace-pre-line">
+              {obs.edited_summary || obs.ai_summary}
+            </div>
+          )}
+        </div>
+      )}
+
+      {isEditable && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-4">
+          <div className="max-w-2xl mx-auto">
+            <button
+              onClick={handleSend}
+              disabled={sending || !summary.trim()}
+              className="w-full bg-gf-teal text-white font-semibold py-4 rounded-xl hover:bg-gf-dark disabled:opacity-50 transition-colors text-base"
+            >
+              {sending ? 'Sending...' : 'Send to My Email'}
+            </button>
           </div>
         </div>
       )}
@@ -78,12 +123,23 @@ export function RSMHistory() {
   const [error, setError] = useState('')
   const [selectedObs, setSelectedObs] = useState(null)
 
-  useEffect(() => {
+  const loadHistory = () => {
+    setLoading(true)
     api.get(`/api/rsms/${id}/history`)
       .then(setData)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    loadHistory()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
+
+  const handleSent = () => {
+    setSelectedObs(null)
+    loadHistory()
+  }
 
   return (
     <Layout>
@@ -113,7 +169,7 @@ export function RSMHistory() {
           >
             &larr; Back to history
           </button>
-          <ObservationDetail obs={selectedObs} />
+          <ObservationDetail obs={selectedObs} onSent={handleSent} />
         </>
       ) : (
         <div className="space-y-3">
@@ -135,14 +191,15 @@ export function RSMHistory() {
                       </p>
                       <p className="text-sm text-gray-500 mt-0.5">{obs.location || 'Location not recorded'}</p>
                     </div>
-                    <div className="text-right">
-                      {avg != null ? (
-                        <>
+                    <div className="text-right flex flex-col items-end gap-1">
+                      {obs.status === 'generated' && (
+                        <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full font-medium">Ready to send</span>
+                      )}
+                      {avg != null && (
+                        <div>
                           <span className="text-lg font-bold text-gray-900">{Number(avg).toFixed(1)}</span>
                           <span className="text-xs text-gray-400">/5</span>
-                        </>
-                      ) : (
-                        <span className="text-xs text-gray-400">Draft</span>
+                        </div>
                       )}
                     </div>
                   </div>
