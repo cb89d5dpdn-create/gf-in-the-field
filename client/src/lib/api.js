@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 
-const API_URL = import.meta.env.VITE_API_URL || ''
+const API_URL = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '')
 
 async function request(path, options = {}) {
   const { data: { session } } = await supabase.auth.getSession()
