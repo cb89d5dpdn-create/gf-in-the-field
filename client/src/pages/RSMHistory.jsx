@@ -117,10 +117,10 @@ export function RSMHistory() {
         </>
       ) : (
         <div className="space-y-3">
-          {data?.observations?.length === 0 ? (
+          {data?.observations?.filter(o => o.status !== 'draft').length === 0 ? (
             <p className="text-gray-500 text-sm text-center py-8">No observations yet.</p>
           ) : (
-            data?.observations?.map((obs) => {
+            data?.observations?.filter(o => o.status !== 'draft').map((obs) => {
               const avg = obs.avg_score
               return (
                 <button

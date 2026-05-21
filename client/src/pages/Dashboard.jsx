@@ -78,7 +78,7 @@ export function Dashboard() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h1 className="text-xl font-bold text-gray-900">{data?.profile?.name}</h1>
-              <p className="text-sm text-gray-500">{data?.profile?.state} · {data?.rsms?.length ?? 0} RSMs</p>
+              <p className="text-sm text-gray-500">{data?.profile?.role === 'admin' ? 'Admin' : data?.profile?.state} · {data?.rsms?.length ?? 0} RSMs</p>
             </div>
           </div>
 
