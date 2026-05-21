@@ -9,6 +9,7 @@ import { RSMHistory } from './pages/RSMHistory'
 import { Admin } from './pages/Admin'
 import { ResetPassword } from './pages/ResetPassword'
 import { ChangePassword } from './pages/ChangePassword'
+import { AdminUsers } from './pages/AdminUsers'
 
 function App() {
   return (
@@ -60,6 +61,14 @@ function App() {
             element={
               <ProtectedRoute requireAdmin>
                 <Admin />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/users"
+            element={
+              <ProtectedRoute requireAdmin>
+                <AdminUsers />
               </ProtectedRoute>
             }
           />

@@ -150,8 +150,13 @@ export function Login() {
         )}
       </div>
 
-      <footer className="mt-12 text-xs text-gray-400">
-        gfinthefield.com.au
+      <footer className="mt-12 text-center space-y-4">
+        <p className="text-xs text-gray-400">gfinthefield.com.au</p>
+        <img 
+          src="/roger-logo.jpg" 
+          alt="Powered by ROGER" 
+          className="h-16 opacity-40 mx-auto"
+        />
       </footer>
     </div>
   )

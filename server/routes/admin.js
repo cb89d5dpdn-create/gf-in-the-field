@@ -5,6 +5,53 @@ const { supabaseAdmin } = require('../lib/supabase')
 // All admin routes require auth + admin role
 router.use(requireAuth, requireAdmin)
 
+// GET /api/admin/users
+router.get('/users', async (req, res, next) => {
+  try {
+    const { profile } = req
+
+    // Get all FSMs with their auth emails
+    const { data: fsmProfiles } = await supabaseAdmin
+      .from('fsm_profiles')
+      .select('id, user_id, name, state, role')
+      .eq('org_id', profile.org_id)
+      .order('name')
+
+    const fsms = await Promise.all(
+      (fsmProfiles || []).map(async (fsm) => {
+        const { data: { user } } = await supabaseAdmin.auth.admin.getUserById(fsm.user_id)
+        return {
+          id: fsm.id,
+          name: fsm.name,
+          email: user?.email || 'N/A',
+          state: fsm.state,
+          role: fsm.role,
+        }
+      })
+    )
+
+    // Get all RSMs with their FSM assignments
+    const { data: rsms } = await supabaseAdmin
+      .from('rsms')
+      .select('id, name, state, email, fsm_id, fsm_profiles(name)')
+      .eq('org_id', profile.org_id)
+      .order('name')
+
+    const enrichedRsms = (rsms || []).map((rsm) => ({
+      id: rsm.id,
+      name: rsm.name,
+      email: rsm.email || null,
+      state: rsm.state,
+      fsm_id: rsm.fsm_id,
+      fsm_name: rsm.fsm_profiles?.name || null,
+    }))
+
+    res.json({ fsms, rsms: enrichedRsms })
+  } catch (err) {
+    next(err)
+  }
+})
+
 // GET /api/admin/overview
 router.get('/overview', async (req, res, next) => {
   try {
