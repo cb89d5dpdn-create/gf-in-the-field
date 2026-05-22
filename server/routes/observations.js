@@ -363,7 +363,7 @@ router.post('/:id/send', requireAuth, async (req, res, next) => {
       arr.map((s) => `${s.observation_areas.label.padEnd(25)} ${s.score}/5 — ${SCORE_LABELS[s.score]}`).join('\n')
 
     // Build RSM-friendly summary (no numeric scores shown to RSM)
-    // Identify 1-2 key focus areas based on lowest scores
+    // Identify 1-2 key focus areas based on lowest scores AND 1-2 strengths based on highest scores
     const allScoresWithLabels = scores.map(s => ({
       label: s.observation_areas.label,
       score: s.score
@@ -371,6 +371,16 @@ router.post('/:id/send', requireAuth, async (req, res, next) => {
     
     const focusArea1 = allScoresWithLabels[0]
     const focusArea2 = allScoresWithLabels[1]
+    
+    // Get top 2 strengths (highest scores)
+    const strengthsWithLabels = [...allScoresWithLabels].sort((a, b) => b.score - a.score)
+    const strength1 = strengthsWithLabels[0]
+    const strength2 = strengthsWithLabels[1]
+    
+    // Only show strengths section if scores are 4 or higher
+    const strengthsSection = (strength1.score >= 4 || strength2.score >= 4)
+      ? `\nKEY STRENGTHS\n${strength1.score >= 4 ? `• ${strength1.label}\n` : ''}${strength2.score >= 4 ? `• ${strength2.label}\n` : ''}`
+      : ''
     
     const emailText = `Hi ${profile.name},
 
@@ -380,9 +390,8 @@ Here is your coaching summary from today's field visit.
 RSM:      ${rsmName}
 Date:     ${visitDate}
 Location: ${obs.location || 'Not recorded'}
-───────────────────────────────
-
-KEY FOCUS AREAS FOR DEVELOPMENT
+───────────────────────────────${strengthsSection}
+KEY FOCUS AREAS
 • ${focusArea1.label}
 • ${focusArea2.label}
 
@@ -392,9 +401,7 @@ COACHING SUMMARY
 ${finalSummary}
 
 ───────────────────────────────
-GF In The Field — gfinthefield.com.au
-
-Note: Detailed scoring metrics are available in your FSM dashboard for tracking purposes.`
+GF In The Field — gfinthefield.com.au`
 
     // Get FSM email from Supabase Auth
     const { data: { user } } = await supabaseAdmin.auth.admin.getUserById(req.user.id)
