@@ -46,7 +46,7 @@ export function Login() {
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center mb-8">
           <GoodmanFielderLogo />
-          <h1 className="mt-4 text-2xl font-semibold text-gray-900 tracking-tight">
+          <h1 className="mt-4 text-2xl font-bold text-gf-teal tracking-tight">
             GF In The Field
           </h1>
         </div>
@@ -169,12 +169,11 @@ export function Login() {
         )}
       </div>
 
-      <footer className="mt-12 text-center space-y-6">
-        <p className="text-xs text-gray-400">gfinthefield.com.au</p>
+      <footer className="mt-12 text-center">
         <img 
           src="/roger-logo.jpg" 
           alt="Powered by ROGER" 
-          className="h-32 opacity-50 mx-auto"
+          className="h-48 opacity-50 mx-auto"
         />
       </footer>
     </div>
