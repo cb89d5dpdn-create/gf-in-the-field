@@ -154,14 +154,37 @@ export function AdminUsers() {
     }
   }
 
-  const handleDeleteRSM = async (id, name) => {
-    if (!confirm(`Delete ${name}?`)) return
+  const handleEditRSM = (rsm) => {
+    setEditingUser(rsm)
+    setRsmName(rsm.name)
+    setRsmEmail(rsm.email || '')
+    setRsmState(rsm.state)
+    setRsmFsmId(rsm.fsm_id || '')
+    setShowEditModal(true)
+  }
+
+  const handleUpdateRSM = async (e) => {
+    e.preventDefault()
+    setUpdating(true)
     try {
-      await api.delete(`/api/admin/rsms/${id}`)
-      toast.success('RSM deleted')
+      await api.put(`/api/admin/rsms/${editingUser.id}`, {
+        name: rsmName,
+        email: rsmEmail || null,
+        state: rsmState,
+        fsm_id: rsmFsmId || null,
+      })
+      toast.success('RSM updated successfully')
+      setShowEditModal(false)
+      setEditingUser(null)
+      setRsmName('')
+      setRsmEmail('')
+      setRsmState('NSW')
+      setRsmFsmId('')
       loadData()
     } catch (e) {
       toast.error(e.message)
+    } finally {
+      setUpdating(false)
     }
   }
 
@@ -233,10 +256,10 @@ export function AdminUsers() {
                         <p className="text-xs text-gray-400 mt-1">Admin</p>
                       </div>
                       <button
-                        onClick={() => handleDeleteAdmin(admin.id, admin.name)}
-                        className="text-red-600 text-sm hover:underline"
+                        onClick={() => handleEditAdmin(admin)}
+                        className="text-gf-teal text-sm hover:underline font-medium"
                       >
-                        Delete
+                        Edit
                       </button>
                     </div>
                   </div>
@@ -262,10 +285,10 @@ export function AdminUsers() {
                         <p className="text-xs text-gray-400 mt-1">{fsm.state}</p>
                       </div>
                       <button
-                        onClick={() => handleDeleteFSM(fsm.id, fsm.name)}
-                        className="text-red-600 text-sm hover:underline"
+                        onClick={() => handleEditFSM(fsm)}
+                        className="text-gf-teal text-sm hover:underline font-medium"
                       >
-                        Delete
+                        Edit
                       </button>
                     </div>
                   </div>
@@ -293,10 +316,10 @@ export function AdminUsers() {
                         </p>
                       </div>
                       <button
-                        onClick={() => handleDeleteRSM(rsm.id, rsm.name)}
-                        className="text-red-600 text-sm hover:underline"
+                        onClick={() => handleEditRSM(rsm)}
+                        className="text-gf-teal text-sm hover:underline font-medium"
                       >
-                        Delete
+                        Edit
                       </button>
                     </div>
                   </div>
@@ -570,6 +593,205 @@ export function AdminUsers() {
                     className="flex-1 bg-gf-teal text-white font-semibold py-3 rounded-lg hover:bg-gf-dark disabled:opacity-50 transition-colors"
                   >
                     {adding ? 'Adding...' : 'Add RSM'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {showEditModal && editingUser && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg font-bold text-gray-900 mb-4">
+              Edit {editingUser.role === 'admin' ? 'Admin' : editingUser.role === 'fsm' ? 'FSM' : 'RSM'}
+            </h2>
+
+            {editingUser.role === 'admin' ? (
+              <form onSubmit={handleUpdateAdmin} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={adminName}
+                    onChange={(e) => setAdminName(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-gf-teal"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={adminEmail}
+                    onChange={(e) => setAdminEmail(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-gf-teal"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => { setShowEditModal(false); setEditingUser(null); }}
+                    className="flex-1 bg-gray-200 text-gray-700 font-semibold py-3 rounded-lg hover:bg-gray-300 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={updating}
+                    className="flex-1 bg-gf-teal text-white font-semibold py-3 rounded-lg hover:bg-gf-dark disabled:opacity-50 transition-colors"
+                  >
+                    {updating ? 'Updating...' : 'Update Admin'}
+                  </button>
+                </div>
+              </form>
+            ) : editingUser.role === 'fsm' ? (
+              <form onSubmit={handleUpdateFSM} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={fsmName}
+                    onChange={(e) => setFsmName(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-gf-teal"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={fsmEmail}
+                    onChange={(e) => setFsmEmail(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-gf-teal"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    State
+                  </label>
+                  <select
+                    value={fsmState}
+                    onChange={(e) => setFsmState(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-gf-teal"
+                  >
+                    <option value="NSW">NSW</option>
+                    <option value="VIC/TAS">VIC/TAS</option>
+                    <option value="QLD">QLD</option>
+                    <option value="WA">WA</option>
+                    <option value="SA/NT">SA/NT</option>
+                  </select>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => { setShowEditModal(false); setEditingUser(null); }}
+                    className="flex-1 bg-gray-200 text-gray-700 font-semibold py-3 rounded-lg hover:bg-gray-300 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={updating}
+                    className="flex-1 bg-gf-teal text-white font-semibold py-3 rounded-lg hover:bg-gf-dark disabled:opacity-50 transition-colors"
+                  >
+                    {updating ? 'Updating...' : 'Update FSM'}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={handleUpdateRSM} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={rsmName}
+                    onChange={(e) => setRsmName(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-gf-teal"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email <span className="text-gray-400 font-normal">(optional)</span>
+                  </label>
+                  <input
+                    type="email"
+                    value={rsmEmail}
+                    onChange={(e) => setRsmEmail(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-gf-teal"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    State
+                  </label>
+                  <select
+                    value={rsmState}
+                    onChange={(e) => setRsmState(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-gf-teal"
+                  >
+                    <option value="NSW">NSW</option>
+                    <option value="VIC/TAS">VIC/TAS</option>
+                    <option value="QLD">QLD</option>
+                    <option value="WA">WA</option>
+                    <option value="SA/NT">SA/NT</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Assign to FSM
+                  </label>
+                  <select
+                    value={rsmFsmId}
+                    onChange={(e) => setRsmFsmId(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-gf-teal"
+                  >
+                    <option value="">Unassigned</option>
+                    {fsms.map((fsm) => (
+                      <option key={fsm.id} value={fsm.id}>
+                        {fsm.name} ({fsm.state})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => { setShowEditModal(false); setEditingUser(null); }}
+                    className="flex-1 bg-gray-200 text-gray-700 font-semibold py-3 rounded-lg hover:bg-gray-300 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={updating}
+                    className="flex-1 bg-gf-teal text-white font-semibold py-3 rounded-lg hover:bg-gf-dark disabled:opacity-50 transition-colors"
+                  >
+                    {updating ? 'Updating...' : 'Update RSM'}
                   </button>
                 </div>
               </form>

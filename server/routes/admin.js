@@ -298,6 +298,35 @@ router.post('/admins', async (req, res, next) => {
   }
 })
 
+// PUT /api/admin/admins/:id — update admin
+router.put('/admins/:id', async (req, res, next) => {
+  try {
+    const { profile } = req
+    const { id } = req.params
+    const { name, email } = req.body
+
+    if (!name || !email) {
+      return res.status(400).json({ error: 'name and email required' })
+    }
+
+    // Update profile
+    const { data: updatedAdmin, error: updateError } = await supabaseAdmin
+      .from('fsm_profiles')
+      .update({ name, email })
+      .eq('id', id)
+      .eq('org_id', profile.org_id)
+      .eq('role', 'admin')
+      .select()
+      .single()
+
+    if (updateError) throw updateError
+
+    res.json({ admin: updatedAdmin })
+  } catch (err) {
+    next(err)
+  }
+})
+
 // DELETE /api/admin/admins/:id
 router.delete('/admins/:id', async (req, res, next) => {
   try {
@@ -376,6 +405,35 @@ router.post('/fsms', async (req, res, next) => {
   }
 })
 
+// PUT /api/admin/fsms/:id — update FSM
+router.put('/fsms/:id', async (req, res, next) => {
+  try {
+    const { profile } = req
+    const { id } = req.params
+    const { name, email, state } = req.body
+
+    if (!name || !email || !state) {
+      return res.status(400).json({ error: 'name, email, and state required' })
+    }
+
+    // Update profile
+    const { data: updatedFSM, error: updateError } = await supabaseAdmin
+      .from('fsm_profiles')
+      .update({ name, email, state })
+      .eq('id', id)
+      .eq('org_id', profile.org_id)
+      .eq('role', 'fsm')
+      .select()
+      .single()
+
+    if (updateError) throw updateError
+
+    res.json({ fsm: updatedFSM })
+  } catch (err) {
+    next(err)
+  }
+})
+
 // DELETE /api/admin/fsms/:id
 router.delete('/fsms/:id', async (req, res, next) => {
   try {
@@ -434,6 +492,39 @@ router.post('/rsms', async (req, res, next) => {
     if (error) throw error
 
     res.status(201).json({ rsm })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// PUT /api/admin/rsms/:id — update RSM
+router.put('/rsms/:id', async (req, res, next) => {
+  try {
+    const { profile } = req
+    const { id } = req.params
+    const { name, email, state, fsm_id } = req.body
+
+    if (!name || !state) {
+      return res.status(400).json({ error: 'name and state required' })
+    }
+
+    // Update RSM
+    const { data: updatedRSM, error: updateError } = await supabaseAdmin
+      .from('rsms')
+      .update({
+        name,
+        email: email || null,
+        state,
+        fsm_id: fsm_id || null
+      })
+      .eq('id', id)
+      .eq('org_id', profile.org_id)
+      .select()
+      .single()
+
+    if (updateError) throw updateError
+
+    res.json({ rsm: updatedRSM })
   } catch (err) {
     next(err)
   }
