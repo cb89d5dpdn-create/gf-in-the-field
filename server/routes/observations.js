@@ -65,7 +65,7 @@ router.get('/:id', requireAuth, async (req, res, next) => {
     let query = supabaseAdmin
       .from('observations')
       .select(`
-        id, visit_date, location, status, ai_summary, edited_summary,
+        id, visit_date, location, status, ai_summary, edited_summary, overall_comments,
         observation_scores(area_id, score, comments, observation_areas(label, group_name)),
         rsms(name)
       `)
@@ -85,12 +85,12 @@ router.get('/:id', requireAuth, async (req, res, next) => {
   }
 })
 
-// PUT /api/observations/:id — update scores + comments
+// PUT /api/observations/:id — update scores + comments + overall_comments (save draft)
 router.put('/:id', requireAuth, async (req, res, next) => {
   try {
     const { profile } = req
     const { id } = req.params
-    const { scores } = req.body // [{ area_id, score, comments }]
+    const { scores, overall_comments } = req.body // [{ area_id, score, comments }], overall_comments
 
     // Verify ownership (admin can access any, FSM only their own)
     let obsQuery = supabaseAdmin
@@ -121,10 +121,13 @@ router.put('/:id', requireAuth, async (req, res, next) => {
       if (insertError) throw insertError
     }
 
-    // Update updated_at
+    // Update overall_comments and updated_at
     await supabaseAdmin
       .from('observations')
-      .update({ updated_at: new Date().toISOString() })
+      .update({
+        overall_comments: overall_comments || null,
+        updated_at: new Date().toISOString()
+      })
       .eq('id', id)
 
     res.json({ success: true })
@@ -139,11 +142,11 @@ router.post('/:id/generate', requireAuth, async (req, res, next) => {
     const { profile } = req
     const { id } = req.params
 
-    // Load full observation with scores (admin can access any)
+    // Load full observation with scores + overall_comments (admin can access any)
     let genQuery = supabaseAdmin
       .from('observations')
       .select(`
-        id, visit_date, location, status,
+        id, visit_date, location, status, overall_comments,
         rsms(name),
         observation_scores(
           score, comments,
@@ -183,9 +186,14 @@ router.post('/:id/generate', requireAuth, async (req, res, next) => {
       arr.map((s) => `Area: ${s.observation_areas.label} | Score: ${s.score}/5 (${SCORE_LABELS[s.score]}) | Comments: "${s.comments || 'None'}"`)
         .join('\n')
 
+    // Build overall comments section if present
+    const overallCommentsSection = obs.overall_comments
+      ? `\n\nOVERALL VISIT COMMENTS (FSM)\n${obs.overall_comments}\n\n⚠️ CRITICAL: The FSM's overall comments above are the PRIMARY SOURCE for your summary. Use their language, observations, and specific examples. The scores below provide context, but the FSM's written comments should drive 70-80% of your content.`
+      : ''
+
     const userPrompt = `You have just completed a field observation with ${rsmName} on ${visitDate}${locationStr}.
 
-The observation covers two phases: Visit Prep & Data (pre-store preparation) and In-Store (performance during the visit).
+The observation covers two phases: Visit Prep & Data (pre-store preparation) and In-Store (performance during the visit).${overallCommentsSection}
 
 VISIT PREP & DATA
 ${formatScores(prepScores)}
@@ -199,16 +207,22 @@ In-Store average: ${storeAvg.toFixed(1)}/5
 
 Write a coaching summary (3–4 paragraphs) that:
 1. Opens with an overall observation of the visit (reference both phases if they differ)
-2. Recognizes genuine strengths (4–5 scores) by name, with reference to comments — be specific but warm
-3. Identifies 1–2 growth opportunities (lower scores) as observations for future development — frame as "areas to explore" or "opportunities to build on" rather than deficiencies
+2. Recognizes genuine strengths by name — HEAVILY reference the FSM's written comments and use their specific examples
+3. Identifies 1–2 growth opportunities as observations for future development — use the FSM's language and observations
 4. Closes with a collaborative coaching focus for next visit
 
-Tone by average: 1.0–2.4 supportive/developmental | 2.5–3.4 balanced/constructive | 3.5–4.4 affirming/building capability | 4.5–5.0 reinforcing strong performance
-Rules: Connected paragraphs only. No bullets. No "overall", "in conclusion", "moving forward".
-Language style: Use "observations" and "opportunities" language — avoid "needs improvement" or "must address". Frame development areas as future potential, not current gaps.
-If prep vs in-store averages differ by >1.0 point, name that contrast — it's the key insight.`
+⚠️ WRITING RULES:
+• Use the FSM's own words, phrases, and specific examples from their comments — this is 70-80% of your content
+• Scores provide context only — the FSM's written observations are the primary source
+• When FSM comments are detailed, reflect their observations closely
+• When FSM comments are brief, you may expand slightly but stay grounded in what they wrote
+• Connected paragraphs only. No bullets in output.
+• Use "observations" and "opportunities" language
+• Tone by average: 1.0–2.4 supportive/developmental | 2.5–3.4 balanced/constructive | 3.5–4.4 affirming/building capability | 4.5–5.0 reinforcing strong performance`
 
     const systemPrompt = `You are an expert field sales coach writing a post-visit coaching summary for a Regional Sales Manager in an FMCG field sales team.
+
+Your primary job is to synthesize and professionally present the Field Sales Manager's own observations and comments. You are translating their field notes into a polished coaching summary — NOT generating new insights.
 
 Your tone is warm, professional, and developmental — like a respected mentor who sees potential and wants to help unlock it.
 
@@ -218,7 +232,7 @@ You never use corporate jargon or filler phrases.
 
 Write in second person ("you demonstrated", "your approach to...").
 
-This summary is for the Field Sales Manager's coaching records only — it is a development tool, not a formal performance review.`
+CRITICAL: When the FSM has written detailed comments, use their language, specific examples, and observations as the foundation of your summary. The scores provide context, but the FSM's words are your primary source material.`
 
     // Call Claude
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })

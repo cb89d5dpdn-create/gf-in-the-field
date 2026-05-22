@@ -107,7 +107,7 @@ function StepDetails({ rsm, onNext }) {
 }
 
 // Step 3: Score all 9 areas
-function StepScoring({ areas, scores, comments, onChange, onComment, onGenerate, generating }) {
+function StepScoring({ areas, scores, comments, overallComments, onChange, onComment, onOverallComment, onGenerate, onSaveDraft, generating, saving }) {
   const scored = Object.keys(scores).length
   const total = areas.length
   const allScored = scored === total
@@ -131,6 +131,24 @@ function StepScoring({ areas, scores, comments, onChange, onComment, onGenerate,
           className="h-full bg-gf-teal rounded-full transition-all"
           style={{ width: `${(scored / total) * 100}%` }}
         />
+      </div>
+
+      {/* Overall Comments Field */}
+      <div className="bg-gf-yellow bg-opacity-10 border border-gf-yellow border-opacity-30 rounded-xl p-4">
+        <label className="block text-sm font-semibold text-gray-900 mb-2">
+          Overall Visit Comments
+          <span className="ml-2 text-xs font-normal text-gray-500">(Your notes will drive the AI summary)</span>
+        </label>
+        <textarea
+          value={overallComments}
+          onChange={(e) => onOverallComment(e.target.value)}
+          placeholder="Overall observations from today's visit... Key themes, standout moments, patterns across stores, coaching priorities..."
+          rows={4}
+          className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gf-teal resize-none"
+        />
+        <p className="text-xs text-gray-500 mt-2">
+          💡 Tip: The AI will use your written comments as the primary source for the coaching summary (70-80% weight).
+        </p>
       </div>
 
       {Object.entries(grouped).map(([groupName, groupAreas]) => (
@@ -173,10 +191,10 @@ function StepScoring({ areas, scores, comments, onChange, onComment, onGenerate,
 
       {/* Sticky CTA */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-4">
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-2xl mx-auto space-y-2">
           <button
             onClick={onGenerate}
-            disabled={!allScored || generating}
+            disabled={!allScored || generating || saving}
             className="w-full bg-gf-teal text-white font-semibold py-4 rounded-xl hover:bg-gf-dark disabled:opacity-50 transition-colors text-base"
           >
             {generating ? (
@@ -187,7 +205,14 @@ function StepScoring({ areas, scores, comments, onChange, onComment, onGenerate,
                 </svg>
                 Generating summary...
               </span>
-            ) : allScored ? 'Generate Report' : `Score all ${total} areas to continue`}
+            ) : allScored ? 'Generate AI Summary' : `Score all ${total} areas to continue`}
+          </button>
+          <button
+            onClick={onSaveDraft}
+            disabled={generating || saving}
+            className="w-full bg-white text-gf-teal border-2 border-gf-teal font-semibold py-3 rounded-xl hover:bg-gray-50 disabled:opacity-50 transition-colors text-sm"
+          >
+            {saving ? 'Saving...' : '💾 Save Draft (Continue Later)'}
           </button>
         </div>
       </div>
@@ -256,9 +281,11 @@ export function NewObservation() {
   const [observationId, setObservationId] = useState(null)
   const [scores, setScores] = useState({})
   const [comments, setComments] = useState({})
+  const [overallComments, setOverallComments] = useState('')
   const [summary, setSummary] = useState('')
   const [observation, setObservation] = useState(null)
   const [generating, setGenerating] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [sending, setSending] = useState(false)
 
   useEffect(() => {
@@ -298,16 +325,41 @@ export function NewObservation() {
     setComments((prev) => ({ ...prev, [areaId]: value }))
   }
 
+  const handleOverallComment = (value) => {
+    setOverallComments(value)
+  }
+
+  const handleSaveDraft = async () => {
+    setSaving(true)
+    try {
+      await api.put(`/api/observations/${observationId}`, {
+        scores: areas.map((a) => ({
+          area_id: a.id,
+          score: scores[a.id] || null,
+          comments: comments[a.id] || '',
+        })),
+        overall_comments: overallComments,
+      })
+      toast.success('Draft saved! You can continue later from Dashboard.')
+      navigate('/')
+    } catch (e) {
+      toast.error(e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const handleGenerate = async () => {
     setGenerating(true)
     try {
-      // Save all scores first
+      // Save all scores + overall comments first
       await api.put(`/api/observations/${observationId}`, {
         scores: areas.map((a) => ({
           area_id: a.id,
           score: scores[a.id],
           comments: comments[a.id] || '',
         })),
+        overall_comments: overallComments,
       })
       // Trigger AI generation
       const res = await api.post(`/api/observations/${observationId}/generate`, {})
@@ -355,10 +407,14 @@ export function NewObservation() {
           areas={areas}
           scores={scores}
           comments={comments}
+          overallComments={overallComments}
           onChange={handleScore}
           onComment={handleComment}
+          onOverallComment={handleOverallComment}
           onGenerate={handleGenerate}
+          onSaveDraft={handleSaveDraft}
           generating={generating}
+          saving={saving}
         />
       )}
       {step === 4 && (
