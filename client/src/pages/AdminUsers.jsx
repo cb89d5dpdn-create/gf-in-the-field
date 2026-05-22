@@ -10,7 +10,10 @@ export function AdminUsers() {
   const [rsms, setRsms] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editingUser, setEditingUser] = useState(null)
   const [adding, setAdding] = useState(false)
+  const [updating, setUpdating] = useState(false)
 
   // Admin form state
   const [adminName, setAdminName] = useState('')
@@ -132,25 +135,62 @@ export function AdminUsers() {
     }
   }
 
-  const handleDeleteAdmin = async (id, name) => {
-    if (!confirm(`Delete admin ${name}? This will also delete their auth account.`)) return
+  const handleEditAdmin = (admin) => {
+    setEditingUser(admin)
+    setAdminName(admin.name)
+    setAdminEmail(admin.email)
+    setShowEditModal(true)
+  }
+
+  const handleEditFSM = (fsm) => {
+    setEditingUser(fsm)
+    setFsmName(fsm.name)
+    setFsmEmail(fsm.email)
+    setFsmState(fsm.state)
+    setShowEditModal(true)
+  }
+
+  const handleUpdateAdmin = async (e) => {
+    e.preventDefault()
+    setUpdating(true)
     try {
-      await api.delete(`/api/admin/admins/${id}`)
-      toast.success('Admin deleted')
+      await api.put(`/api/admin/admins/${editingUser.id}`, {
+        name: adminName,
+        email: adminEmail,
+      })
+      toast.success('Admin updated successfully')
+      setShowEditModal(false)
+      setEditingUser(null)
+      setAdminName('')
+      setAdminEmail('')
       loadData()
     } catch (e) {
       toast.error(e.message)
+    } finally {
+      setUpdating(false)
     }
   }
 
-  const handleDeleteFSM = async (id, name) => {
-    if (!confirm(`Delete ${name}? This will also delete their auth account.`)) return
+  const handleUpdateFSM = async (e) => {
+    e.preventDefault()
+    setUpdating(true)
     try {
-      await api.delete(`/api/admin/fsms/${id}`)
-      toast.success('FSM deleted')
+      await api.put(`/api/admin/fsms/${editingUser.id}`, {
+        name: fsmName,
+        email: fsmEmail,
+        state: fsmState,
+      })
+      toast.success('FSM updated successfully')
+      setShowEditModal(false)
+      setEditingUser(null)
+      setFsmName('')
+      setFsmEmail('')
+      setFsmState('NSW')
       loadData()
     } catch (e) {
       toast.error(e.message)
+    } finally {
+      setUpdating(false)
     }
   }
 
