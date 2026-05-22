@@ -182,7 +182,7 @@ function SwipeableObservation({ obs, isDraft, onDelete, onClick }) {
       style={{ touchAction: 'pan-y' }}
     >
       {/* Delete button background */}
-      <div className="absolute inset-0 bg-red-500 flex items-center justify-end px-6">
+      <div className="absolute inset-0 bg-red-500 rounded-xl flex items-center justify-end px-6">
         <button
           onClick={handleDelete}
           className="text-white font-semibold text-sm"
