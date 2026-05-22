@@ -134,7 +134,7 @@ function StepScoring({ areas, scores, comments, overallComments, onChange, onCom
       </div>
 
       {/* Overall Comments Field */}
-      <div className="bg-gf-yellow bg-opacity-10 border border-gf-yellow border-opacity-30 rounded-xl p-4">
+      <div className="bg-gray-50 border-l-4 border-gf-teal rounded-lg p-4">
         <label className="block text-sm font-semibold text-gray-900 mb-2">
           Overall Visit Comments
         </label>
