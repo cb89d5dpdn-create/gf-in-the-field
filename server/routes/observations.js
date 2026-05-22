@@ -278,6 +278,41 @@ CRITICAL: When the FSM has written detailed comments, use their language, specif
   }
 })
 
+// DELETE /api/observations/:id — delete observation
+router.delete('/:id', requireAuth, async (req, res, next) => {
+  try {
+    const { profile } = req
+    const { id } = req.params
+
+    // Verify ownership (admin can delete any, FSM only their own)
+    let obsQuery = supabaseAdmin
+      .from('observations')
+      .select('id')
+      .eq('id', id)
+      .eq('org_id', profile.org_id)
+
+    if (profile.role !== 'admin') {
+      obsQuery = obsQuery.eq('fsm_id', profile.id)
+    }
+
+    const { data: obs, error: obsError } = await obsQuery.single()
+
+    if (obsError || !obs) return res.status(404).json({ error: 'Observation not found' })
+
+    // Delete (cascade will handle observation_scores)
+    const { error: deleteError } = await supabaseAdmin
+      .from('observations')
+      .delete()
+      .eq('id', id)
+
+    if (deleteError) throw deleteError
+
+    res.json({ success: true })
+  } catch (err) {
+    next(err)
+  }
+})
+
 // POST /api/observations/:id/send — save edited summary + send email
 router.post('/:id/send', requireAuth, async (req, res, next) => {
   try {

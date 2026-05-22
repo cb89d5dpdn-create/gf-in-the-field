@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Layout } from '../components/Layout'
 import { api } from '../lib/api'
@@ -115,6 +115,125 @@ function ObservationDetail({ obs, onSent }) {
   )
 }
 
+function SwipeableObservation({ obs, isDraft, onDelete, onClick }) {
+  const [swipeOffset, setSwipeOffset] = useState(0)
+  const [isSwiping, setIsSwiping] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const touchStart = useRef(0)
+  const containerRef = useRef(null)
+
+  const handleTouchStart = (e) => {
+    touchStart.current = e.touches[0].clientX
+    setIsSwiping(true)
+  }
+
+  const handleTouchMove = (e) => {
+    if (!isSwiping) return
+    const currentTouch = e.touches[0].clientX
+    const diff = touchStart.current - currentTouch
+    
+    // Only allow left swipe (positive diff), cap at 100px
+    if (diff > 0) {
+      setSwipeOffset(Math.min(diff, 100))
+    } else {
+      setSwipeOffset(0)
+    }
+  }
+
+  const handleTouchEnd = () => {
+    setIsSwiping(false)
+    
+    // If swiped more than 50px, lock to 80px and show delete
+    if (swipeOffset > 50) {
+      setSwipeOffset(80)
+      setShowDeleteConfirm(true)
+    } else {
+      setSwipeOffset(0)
+      setShowDeleteConfirm(false)
+    }
+  }
+
+  const handleDelete = () => {
+    if (confirm(`Delete this ${isDraft ? 'draft' : 'observation'}?`)) {
+      onDelete(obs.id)
+      setSwipeOffset(0)
+      setShowDeleteConfirm(false)
+    }
+  }
+
+  const handleClick = () => {
+    if (swipeOffset > 0) {
+      // Reset swipe if already swiped
+      setSwipeOffset(0)
+      setShowDeleteConfirm(false)
+    } else {
+      onClick()
+    }
+  }
+
+  const avg = obs.avg_score
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative overflow-hidden"
+      style={{ touchAction: 'pan-y' }}
+    >
+      {/* Delete button background */}
+      <div className="absolute inset-0 bg-red-500 flex items-center justify-end px-6">
+        <button
+          onClick={handleDelete}
+          className="text-white font-semibold text-sm"
+        >
+          Delete
+        </button>
+      </div>
+
+      {/* Swipeable content */}
+      <div
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onClick={handleClick}
+        style={{
+          transform: `translateX(-${swipeOffset}px)`,
+          transition: isSwiping ? 'none' : 'transform 0.3s ease'
+        }}
+        className={`border rounded-xl px-4 py-4 cursor-pointer ${
+          isDraft
+            ? 'bg-gray-50 border-gray-300 border-dashed'
+            : 'bg-white border-gray-200'
+        }`}
+      >
+        <div className="flex items-center justify-between">
+          <div>
+            <p className={`font-semibold ${
+              isDraft ? 'text-gray-600' : 'text-gray-900'
+            }`}>
+              {new Date(obs.visit_date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
+            </p>
+            <p className="text-sm text-gray-500 mt-0.5">{obs.location || 'Location not recorded'}</p>
+          </div>
+          <div className="text-right flex flex-col items-end gap-1">
+            {isDraft && (
+              <span className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded-full font-medium">📋 Draft</span>
+            )}
+            {obs.status === 'generated' && (
+              <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full font-medium">Ready to send</span>
+            )}
+            {!isDraft && avg != null && (
+              <div>
+                <span className="text-lg font-bold text-gray-900">{Number(avg).toFixed(1)}</span>
+                <span className="text-xs text-gray-400">/5</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function RSMHistory() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -139,6 +258,16 @@ export function RSMHistory() {
   const handleSent = () => {
     setSelectedObs(null)
     loadHistory()
+  }
+
+  const handleDelete = async (obsId) => {
+    try {
+      await api.delete(`/api/observations/${obsId}`)
+      toast.success('Observation deleted')
+      loadHistory()
+    } catch (e) {
+      toast.error(e.message)
+    }
   }
 
   return (
@@ -177,50 +306,21 @@ export function RSMHistory() {
             <p className="text-gray-500 text-sm text-center py-8">No observations yet.</p>
           ) : (
             data?.observations?.map((obs) => {
-              const avg = obs.avg_score
               const isDraft = obs.status === 'draft'
               return (
-                <button
+                <SwipeableObservation
                   key={obs.id}
+                  obs={obs}
+                  isDraft={isDraft}
+                  onDelete={handleDelete}
                   onClick={() => {
                     if (isDraft) {
-                      // Navigate to continue draft
                       navigate(`/observations/${obs.id}/continue`)
                     } else {
                       setSelectedObs(obs)
                     }
                   }}
-                  className={`w-full border rounded-xl px-4 py-4 text-left transition-colors ${
-                    isDraft
-                      ? 'bg-gray-50 border-gray-300 border-dashed hover:bg-gray-100'
-                      : 'bg-white border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className={`font-semibold ${
-                        isDraft ? 'text-gray-600' : 'text-gray-900'
-                      }`}>
-                        {new Date(obs.visit_date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
-                      </p>
-                      <p className="text-sm text-gray-500 mt-0.5">{obs.location || 'Location not recorded'}</p>
-                    </div>
-                    <div className="text-right flex flex-col items-end gap-1">
-                      {isDraft && (
-                        <span className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded-full font-medium">📋 Draft</span>
-                      )}
-                      {obs.status === 'generated' && (
-                        <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full font-medium">Ready to send</span>
-                      )}
-                      {!isDraft && avg != null && (
-                        <div>
-                          <span className="text-lg font-bold text-gray-900">{Number(avg).toFixed(1)}</span>
-                          <span className="text-xs text-gray-400">/5</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </button>
+                />
               )
             })
           )}
