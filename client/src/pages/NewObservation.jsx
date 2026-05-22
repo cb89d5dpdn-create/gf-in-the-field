@@ -190,11 +190,11 @@ function StepScoring({ areas, scores, comments, overallComments, onChange, onCom
 
       {/* Sticky CTA */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-4">
-        <div className="max-w-2xl mx-auto space-y-2">
+        <div className="max-w-2xl mx-auto flex gap-3">
           <button
             onClick={onGenerate}
             disabled={!allScored || generating || saving}
-            className="w-full bg-gf-teal text-white font-semibold py-4 rounded-xl hover:bg-gf-dark disabled:opacity-50 transition-colors text-base"
+            className="flex-1 bg-gf-teal text-white font-semibold py-4 rounded-xl hover:bg-gf-dark disabled:opacity-50 transition-colors text-sm"
           >
             {generating ? (
               <span className="flex items-center justify-center gap-2">
@@ -202,16 +202,16 @@ function StepScoring({ areas, scores, comments, overallComments, onChange, onCom
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                 </svg>
-                Generating summary...
+                Generating...
               </span>
-            ) : allScored ? 'Generate AI Summary' : `Score all ${total} areas to continue`}
+            ) : allScored ? 'Generate Summary' : `Score all ${total} first`}
           </button>
           <button
             onClick={onSaveDraft}
             disabled={generating || saving}
-            className="w-full bg-white text-gf-teal border-2 border-gf-teal font-semibold py-3 rounded-xl hover:bg-gray-50 disabled:opacity-50 transition-colors text-sm"
+            className="flex-1 bg-white text-gf-teal border-2 border-gf-teal font-semibold py-4 rounded-xl hover:bg-gray-50 disabled:opacity-50 transition-colors text-sm"
           >
-            {saving ? 'Saving...' : '💾 Save Draft (Continue Later)'}
+            {saving ? 'Saving...' : 'Save Draft'}
           </button>
         </div>
       </div>
