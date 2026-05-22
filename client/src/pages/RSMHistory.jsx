@@ -1,8 +1,10 @@
-import { useEffect, useState, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Layout } from '../components/Layout'
 import { api } from '../lib/api'
 import toast from 'react-hot-toast'
+import { SkeletonList } from '../components/Skeleton'
 
 const SCORE_LABELS = {
   1: 'Needs Dev',
@@ -237,34 +239,28 @@ function SwipeableObservation({ obs, isDraft, onDelete, onClick }) {
 export function RSMHistory() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const [data, setData] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const queryClient = useQueryClient()
   const [selectedObs, setSelectedObs] = useState(null)
 
-  const loadHistory = () => {
-    setLoading(true)
-    api.get(`/api/rsms/${id}/history`)
-      .then(setData)
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false))
-  }
+  const { data, isLoading: loading, error } = useQuery({
+    queryKey: ['rsm-history', id],
+    queryFn: () => api.get(`/api/rsms/${id}/history`),
+  })
 
-  useEffect(() => {
-    loadHistory()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id])
+  const refreshHistory = () => {
+    queryClient.invalidateQueries({ queryKey: ['rsm-history', id] })
+  }
 
   const handleSent = () => {
     setSelectedObs(null)
-    loadHistory()
+    refreshHistory()
   }
 
   const handleDelete = async (obsId) => {
     try {
       await api.delete(`/api/observations/${obsId}`)
       toast.success('Observation deleted')
-      loadHistory()
+      refreshHistory()
     } catch (e) {
       toast.error(e.message)
     }
@@ -285,11 +281,9 @@ export function RSMHistory() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-16">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gf-teal" />
-        </div>
+        <SkeletonList count={5} />
       ) : error ? (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">{error}</div>
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">{error.message || 'Failed to load history'}</div>
       ) : selectedObs ? (
         <>
           <button

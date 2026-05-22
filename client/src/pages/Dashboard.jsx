@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { Layout } from '../components/Layout'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../lib/api'
+import { SkeletonList } from '../components/Skeleton'
 
 const SCORE_COLORS = {
   red: 'bg-gf-blue',
@@ -49,29 +50,28 @@ function RSMCard({ rsm, onClick }) {
 export function Dashboard() {
   const { profile, setProfile } = useAuth()
   const navigate = useNavigate()
-  const [data, setData] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
 
-  useEffect(() => {
-    api.get('/api/dashboard')
-      .then((res) => {
-        setData(res)
-        if (res.profile) setProfile(res.profile)
-      })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false))
-  }, [setProfile])
+  // Use React Query for caching
+  const { data, isLoading: loading, error } = useQuery({
+    queryKey: ['dashboard'],
+    queryFn: async () => {
+      const res = await api.get('/api/dashboard')
+      if (res.profile) setProfile(res.profile)
+      return res
+    },
+  })
 
   return (
     <Layout>
       {loading ? (
-        <div className="flex justify-center py-16">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gf-teal" />
+        <div>
+          <div className="h-8 w-48 bg-gray-200 rounded animate-pulse mb-6"></div>
+          <div className="h-12 bg-gray-200 rounded-xl animate-pulse mb-6"></div>
+          <SkeletonList count={5} />
         </div>
       ) : error ? (
         <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
-          {error}
+          {error.message || 'Failed to load dashboard'}
         </div>
       ) : (
         <>

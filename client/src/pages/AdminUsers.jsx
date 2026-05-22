@@ -1,14 +1,31 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Layout } from '../components/Layout'
 import { api } from '../lib/api'
 import toast from 'react-hot-toast'
+import { SkeletonList } from '../components/Skeleton'
 
 export function AdminUsers() {
   const [tab, setTab] = useState('admin') // 'admin', 'fsm', or 'rsm'
-  const [admins, setAdmins] = useState([])
-  const [fsms, setFsms] = useState([])
-  const [rsms, setRsms] = useState([])
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
+  
+  // Use React Query for data fetching
+  const { data, isLoading: loading } = useQuery({
+    queryKey: ['admin-users'],
+    queryFn: async () => {
+      const result = await api.get('/api/admin/users')
+      const allUsers = result.fsms || []
+      return {
+        admins: allUsers.filter(u => u.role === 'admin'),
+        fsms: allUsers.filter(u => u.role === 'fsm'),
+        rsms: result.rsms || [],
+      }
+    },
+  })
+
+  const admins = data?.admins || []
+  const fsms = data?.fsms || []
+  const rsms = data?.rsms || []
   const [showAddModal, setShowAddModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingUser, setEditingUser] = useState(null)
@@ -34,28 +51,9 @@ export function AdminUsers() {
   const [rsmState, setRsmState] = useState('NSW')
   const [rsmFsmId, setRsmFsmId] = useState('')
 
-  useEffect(() => {
-    loadData()
-  }, [])
-
-  const loadData = async () => {
-    setLoading(true)
-    try {
-      const data = await api.get('/api/admin/users')
-      // Separate admins from FSMs
-      const allUsers = data.fsms || []
-      setAdmins(allUsers.filter(u => u.role === 'admin'))
-      setFsms(allUsers.filter(u => u.role === 'fsm'))
-      setRsms(data.rsms || [])
-      const actualFsms = (data.fsms || []).filter(u => u.role === 'fsm')
-      if (actualFsms.length && !rsmFsmId) {
-        setRsmFsmId(actualFsms[0].id)
-      }
-    } catch (e) {
-      toast.error(e.message)
-    } finally {
-      setLoading(false)
-    }
+  // Helper to refresh data after mutations
+  const refreshData = () => {
+    queryClient.invalidateQueries({ queryKey: ['admin-users'] })
   }
 
   const handleAddAdmin = async (e) => {
@@ -76,7 +74,7 @@ export function AdminUsers() {
       setAdminName('')
       setAdminEmail('')
       setAdminPassword('')
-      loadData()
+      refreshData()
     } catch (e) {
       toast.error(e.message)
     } finally {
@@ -104,7 +102,7 @@ export function AdminUsers() {
       setFsmEmail('')
       setFsmState('NSW')
       setFsmPassword('')
-      loadData()
+      refreshData()
     } catch (e) {
       toast.error(e.message)
     } finally {
@@ -127,7 +125,7 @@ export function AdminUsers() {
       setRsmName('')
       setRsmEmail('')
       setRsmState('NSW')
-      loadData()
+      refreshData()
     } catch (e) {
       toast.error(e.message)
     } finally {
@@ -163,7 +161,7 @@ export function AdminUsers() {
       setEditingUser(null)
       setAdminName('')
       setAdminEmail('')
-      loadData()
+      refreshData()
     } catch (e) {
       toast.error(e.message)
     } finally {
@@ -186,7 +184,7 @@ export function AdminUsers() {
       setFsmName('')
       setFsmEmail('')
       setFsmState('NSW')
-      loadData()
+      refreshData()
     } catch (e) {
       toast.error(e.message)
     } finally {
@@ -220,7 +218,7 @@ export function AdminUsers() {
       setRsmEmail('')
       setRsmState('NSW')
       setRsmFsmId('')
-      loadData()
+      refreshData()
     } catch (e) {
       toast.error(e.message)
     } finally {
@@ -267,9 +265,10 @@ export function AdminUsers() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-16">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gf-teal" />
-        </div>
+        <>
+          <div className="h-12 bg-gray-200 rounded-xl animate-pulse mb-6"></div>
+          <SkeletonList count={6} />
+        </>
       ) : (
         <>
           <button
