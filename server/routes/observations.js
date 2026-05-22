@@ -198,18 +198,21 @@ Visit Prep & Data average: ${prepAvg.toFixed(1)}/5
 In-Store average: ${storeAvg.toFixed(1)}/5
 
 Write a coaching summary (3–4 paragraphs) that:
-1. Opens with an overall read of the visit (reference both phases if they differ)
-2. Calls out genuine strengths (4–5 scores) by name, with reference to comments
-3. Names 1–2 development areas (lowest scores) as opportunities, not criticisms
-4. Closes with a specific, observable coaching focus for next visit
+1. Opens with an overall observation of the visit (reference both phases if they differ)
+2. Recognizes genuine strengths (4–5 scores) by name, with reference to comments — be specific but warm
+3. Identifies 1–2 growth opportunities (lower scores) as observations for future development — frame as "areas to explore" or "opportunities to build on" rather than deficiencies
+4. Closes with a collaborative coaching focus for next visit
 
-Tone by average: 1.0–2.4 empathetic/honest | 2.5–3.4 balanced | 3.5–4.4 encouraging/high standards | 4.5–5.0 reinforcing excellence
+Tone by average: 1.0–2.4 supportive/developmental | 2.5–3.4 balanced/constructive | 3.5–4.4 affirming/building capability | 4.5–5.0 reinforcing strong performance
 Rules: Connected paragraphs only. No bullets. No "overall", "in conclusion", "moving forward".
+Language style: Use "observations" and "opportunities" language — avoid "needs improvement" or "must address". Frame development areas as future potential, not current gaps.
 If prep vs in-store averages differ by >1.0 point, name that contrast — it's the key insight.`
 
     const systemPrompt = `You are an expert field sales coach writing a post-visit coaching summary for a Regional Sales Manager in an FMCG field sales team.
 
-Your tone is direct, professional, and constructive — like a respected leader who genuinely wants to develop their team.
+Your tone is warm, professional, and developmental — like a respected mentor who sees potential and wants to help unlock it.
+
+You frame feedback as observations and opportunities for growth, not criticisms or deficiencies.
 
 You never use corporate jargon or filler phrases.
 
@@ -310,6 +313,16 @@ router.post('/:id/send', requireAuth, async (req, res, next) => {
     const formatScoreBlock = (arr) =>
       arr.map((s) => `${s.observation_areas.label.padEnd(25)} ${s.score}/5 — ${SCORE_LABELS[s.score]}`).join('\n')
 
+    // Build RSM-friendly summary (no numeric scores shown to RSM)
+    // Identify 1-2 key focus areas based on lowest scores
+    const allScoresWithLabels = scores.map(s => ({
+      label: s.observation_areas.label,
+      score: s.score
+    })).sort((a, b) => a.score - b.score)
+    
+    const focusArea1 = allScoresWithLabels[0]
+    const focusArea2 = allScoresWithLabels[1]
+    
     const emailText = `Hi ${profile.name},
 
 Here is your coaching summary from today's field visit.
@@ -320,15 +333,9 @@ Date:     ${visitDate}
 Location: ${obs.location || 'Not recorded'}
 ───────────────────────────────
 
-VISIT PREP & DATA
-${formatScoreBlock(prepScores)}
-Group Average: ${prepAvg.toFixed(1)}/5
-
-IN-STORE
-${formatScoreBlock(storeScores)}
-Group Average: ${storeAvg.toFixed(1)}/5
-
-Overall Average: ${overallAvg.toFixed(1)}/5
+KEY FOCUS AREAS FOR DEVELOPMENT
+• ${focusArea1.label}
+• ${focusArea2.label}
 
 ───────────────────────────────
 COACHING SUMMARY
@@ -336,7 +343,9 @@ COACHING SUMMARY
 ${finalSummary}
 
 ───────────────────────────────
-GF In The Field — gfinthefield.com.au`
+GF In The Field — gfinthefield.com.au
+
+Note: Detailed scoring metrics are available in your FSM dashboard for tracking purposes.`
 
     // Get FSM email from Supabase Auth
     const { data: { user } } = await supabaseAdmin.auth.admin.getUserById(req.user.id)
