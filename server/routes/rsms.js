@@ -52,7 +52,7 @@ router.get('/:id/history', requireAuth, async (req, res, next) => {
     const { data: observations, error: obsError } = await supabaseAdmin
       .from('observations')
       .select(`
-        id, visit_date, location, status, ai_summary, edited_summary,
+        id, visit_date, location, status, ai_summary, edited_summary, overall_comments,
         observation_scores(
           area_id, score, comments,
           observation_areas(label, group_name)

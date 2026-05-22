@@ -80,6 +80,18 @@ function ObservationDetail({ obs, onSent }) {
         </div>
       ))}
 
+      {/* Overall Comments from FSM */}
+      {obs.overall_comments && (
+        <div>
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+            Overall Visit Comments (FSM)
+          </p>
+          <div className="bg-gray-50 border-l-4 border-gf-teal rounded-lg px-4 py-3 text-sm text-gray-700 leading-relaxed whitespace-pre-line">
+            {obs.overall_comments}
+          </div>
+        </div>
+      )}
+
       {(obs.edited_summary || obs.ai_summary) && (
         <div>
           <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
