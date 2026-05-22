@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { Layout } from '../components/Layout'
 import { api } from '../lib/api'
 import toast from 'react-hot-toast'
@@ -137,7 +137,6 @@ function StepScoring({ areas, scores, comments, overallComments, onChange, onCom
       <div className="bg-gf-yellow bg-opacity-10 border border-gf-yellow border-opacity-30 rounded-xl p-4">
         <label className="block text-sm font-semibold text-gray-900 mb-2">
           Overall Visit Comments
-          <span className="ml-2 text-xs font-normal text-gray-500">(Your notes will drive the AI summary)</span>
         </label>
         <textarea
           value={overallComments}
@@ -147,7 +146,7 @@ function StepScoring({ areas, scores, comments, overallComments, onChange, onCom
           className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gf-teal resize-none"
         />
         <p className="text-xs text-gray-500 mt-2">
-          💡 Tip: The AI will use your written comments as the primary source for the coaching summary (70-80% weight).
+          💡 Tip: Your written comments will be the foundation of the coaching summary.
         </p>
       </div>
 
@@ -273,6 +272,7 @@ function StepReview({ observation, summary, onSummaryChange, onSend, sending }) 
 
 export function NewObservation() {
   const navigate = useNavigate()
+  const { id: draftId } = useParams() // If present, we're continuing a draft
   const [step, setStep] = useState(1)
   const [rsms, setRSMs] = useState([])
   const [areas, setAreas] = useState([])
@@ -289,13 +289,50 @@ export function NewObservation() {
   const [sending, setSending] = useState(false)
 
   useEffect(() => {
-    Promise.all([api.get('/api/rsms'), api.get('/api/areas')])
-      .then(([rsmData, areaData]) => {
+    const loadData = async () => {
+      try {
+        const [rsmData, areaData] = await Promise.all([
+          api.get('/api/rsms'),
+          api.get('/api/areas')
+        ])
         setRSMs(rsmData.rsms || [])
         setAreas(areaData.areas || [])
-      })
-      .catch((e) => toast.error(e.message))
-  }, [])
+
+        // If continuing a draft, load the observation
+        if (draftId) {
+          const obs = await api.get(`/api/observations/${draftId}`)
+          if (obs.observation) {
+            const o = obs.observation
+            // Find the RSM
+            const rsm = rsmData.rsms.find(r => r.name === o.rsms.name)
+            if (rsm) {
+              setSelectedRSM(rsm)
+              setDetails({ date: o.visit_date, location: o.location || '' })
+              setObservationId(o.id)
+              
+              // Load scores and comments
+              const scoresObj = {}
+              const commentsObj = {}
+              o.observation_scores?.forEach(s => {
+                scoresObj[s.area_id] = s.score
+                if (s.comments) commentsObj[s.area_id] = s.comments
+              })
+              setScores(scoresObj)
+              setComments(commentsObj)
+              setOverallComments(o.overall_comments || '')
+              
+              // Start at step 3 (scoring)
+              setStep(3)
+            }
+          }
+        }
+      } catch (e) {
+        toast.error(e.message)
+      }
+    }
+    loadData()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftId])
 
   const handleSelectRSM = (rsm) => {
     setSelectedRSM(rsm)

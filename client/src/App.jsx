@@ -49,6 +49,14 @@ function App() {
             }
           />
           <Route
+            path="/observations/:id/continue"
+            element={
+              <ProtectedRoute>
+                <NewObservation />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/rsms/:id/history"
             element={
               <ProtectedRoute>

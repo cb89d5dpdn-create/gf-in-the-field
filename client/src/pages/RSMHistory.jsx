@@ -173,29 +173,46 @@ export function RSMHistory() {
         </>
       ) : (
         <div className="space-y-3">
-          {data?.observations?.filter(o => o.status !== 'draft').length === 0 ? (
+          {data?.observations?.length === 0 ? (
             <p className="text-gray-500 text-sm text-center py-8">No observations yet.</p>
           ) : (
-            data?.observations?.filter(o => o.status !== 'draft').map((obs) => {
+            data?.observations?.map((obs) => {
               const avg = obs.avg_score
+              const isDraft = obs.status === 'draft'
               return (
                 <button
                   key={obs.id}
-                  onClick={() => setSelectedObs(obs)}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-4 text-left hover:border-gray-300 transition-colors"
+                  onClick={() => {
+                    if (isDraft) {
+                      // Navigate to continue draft
+                      navigate(`/observations/${obs.id}/continue`)
+                    } else {
+                      setSelectedObs(obs)
+                    }
+                  }}
+                  className={`w-full border rounded-xl px-4 py-4 text-left transition-colors ${
+                    isDraft
+                      ? 'bg-gray-50 border-gray-300 border-dashed hover:bg-gray-100'
+                      : 'bg-white border-gray-200 hover:border-gray-300'
+                  }`}
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-semibold text-gray-900">
+                      <p className={`font-semibold ${
+                        isDraft ? 'text-gray-600' : 'text-gray-900'
+                      }`}>
                         {new Date(obs.visit_date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </p>
                       <p className="text-sm text-gray-500 mt-0.5">{obs.location || 'Location not recorded'}</p>
                     </div>
                     <div className="text-right flex flex-col items-end gap-1">
+                      {isDraft && (
+                        <span className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded-full font-medium">📋 Draft</span>
+                      )}
                       {obs.status === 'generated' && (
                         <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full font-medium">Ready to send</span>
                       )}
-                      {avg != null && (
+                      {!isDraft && avg != null && (
                         <div>
                           <span className="text-lg font-bold text-gray-900">{Number(avg).toFixed(1)}</span>
                           <span className="text-xs text-gray-400">/5</span>
