@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Layout } from '../components/Layout'
@@ -18,12 +19,14 @@ function scoreDot(avg) {
   return SCORE_COLORS.green
 }
 
-function RSMCard({ rsm, onClick }) {
+function RSMCard({ rsm, onClick, isNested }) {
   const dot = scoreDot(rsm.last_avg_score)
   return (
     <button
       onClick={onClick}
-      className="w-full bg-white border border-gray-200 rounded-xl p-4 text-left flex items-center gap-4 hover:border-gray-300 active:bg-gray-50 transition-colors"
+      className={`w-full bg-white border border-gray-200 rounded-xl p-4 text-left flex items-center gap-4 hover:border-gray-300 active:bg-gray-50 transition-colors ${
+        isNested ? 'ml-6' : ''
+      }`}
     >
       <div className={`w-3 h-3 rounded-full flex-shrink-0 ${dot}`} />
       <div className="flex-1 min-w-0">
@@ -47,9 +50,55 @@ function RSMCard({ rsm, onClick }) {
   )
 }
 
+function FSMCard({ fsm, expanded, onToggle, onRSMClick }) {
+  const rsmCount = fsm.rsms?.length || 0
+  
+  return (
+    <div className="space-y-2">
+      <button
+        onClick={onToggle}
+        className="w-full bg-gray-50 border-2 border-gray-300 rounded-xl p-4 text-left flex items-center gap-4 hover:border-gf-teal transition-colors"
+      >
+        <svg
+          className={`w-5 h-5 text-gray-600 flex-shrink-0 transition-transform ${
+            expanded ? 'rotate-90' : ''
+          }`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+        <div className="flex-1 min-w-0">
+          <p className="font-bold text-gray-900">{fsm.name}</p>
+          <p className="text-sm text-gray-600">{fsm.state} · {rsmCount} RSM{rsmCount !== 1 ? 's' : ''}</p>
+        </div>
+      </button>
+      
+      {expanded && rsmCount > 0 && (
+        <div className="space-y-2 pl-4">
+          {fsm.rsms.map((rsm) => (
+            <RSMCard
+              key={rsm.id}
+              rsm={rsm}
+              isNested={true}
+              onClick={() => onRSMClick(rsm.id)}
+            />
+          ))}
+        </div>
+      )}
+      
+      {expanded && rsmCount === 0 && (
+        <p className="text-gray-500 text-sm pl-10 py-2">No RSMs assigned to this FSM yet.</p>
+      )}
+    </div>
+  )
+}
+
 export function Dashboard() {
   const { profile, setProfile } = useAuth()
   const navigate = useNavigate()
+  const [expandedFsms, setExpandedFsms] = useState(new Set())
 
   // Use React Query for caching
   const { data, isLoading: loading, error } = useQuery({
@@ -78,7 +127,10 @@ export function Dashboard() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h1 className="text-xl font-bold text-gray-900">{data?.profile?.name}</h1>
-              <p className="text-sm text-gray-500">{data?.profile?.role === 'admin' ? 'Admin' : data?.profile?.state} · {data?.rsms?.length ?? 0} RSMs</p>
+              <p className="text-sm text-gray-500">
+                {data?.profile?.role === 'admin' ? 'Admin' : data?.profile?.state} · {' '}
+                {data?.fsms ? `${data.fsms.length} FSM${data.fsms.length !== 1 ? 's' : ''}` : `${data?.rsms?.length ?? 0} RSM${data?.rsms?.length !== 1 ? 's' : ''}`}
+              </p>
             </div>
           </div>
 
@@ -90,16 +142,42 @@ export function Dashboard() {
           </button>
 
           <div className="space-y-3">
-            {data?.rsms?.length === 0 ? (
-              <p className="text-gray-500 text-sm text-center py-8">No RSMs assigned yet.</p>
+            {data?.fsms ? (
+              // Admin view: grouped by FSM
+              data.fsms.length === 0 ? (
+                <p className="text-gray-500 text-sm text-center py-8">No FSMs yet.</p>
+              ) : (
+                data.fsms.map((fsm) => (
+                  <FSMCard
+                    key={fsm.id}
+                    fsm={fsm}
+                    expanded={expandedFsms.has(fsm.id)}
+                    onToggle={() => {
+                      const newExpanded = new Set(expandedFsms)
+                      if (newExpanded.has(fsm.id)) {
+                        newExpanded.delete(fsm.id)
+                      } else {
+                        newExpanded.add(fsm.id)
+                      }
+                      setExpandedFsms(newExpanded)
+                    }}
+                    onRSMClick={(rsmId) => navigate(`/rsms/${rsmId}/history`)}
+                  />
+                ))
+              )
             ) : (
-              data?.rsms?.map((rsm) => (
-                <RSMCard
-                  key={rsm.id}
-                  rsm={rsm}
-                  onClick={() => navigate(`/rsms/${rsm.id}/history`)}
-                />
-              ))
+              // Regular FSM view: flat RSM list
+              data?.rsms?.length === 0 ? (
+                <p className="text-gray-500 text-sm text-center py-8">No RSMs assigned yet.</p>
+              ) : (
+                data?.rsms?.map((rsm) => (
+                  <RSMCard
+                    key={rsm.id}
+                    rsm={rsm}
+                    onClick={() => navigate(`/rsms/${rsm.id}/history`)}
+                  />
+                ))
+              )
             )}
           </div>
 
