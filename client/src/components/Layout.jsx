@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../contexts/AuthContext'
 import { GoodmanFielderLogo } from './GoodmanFielderLogo'
 
 export function Layout({ children }) {
   const { profile, signOut } = useAuth()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [menuOpen, setMenuOpen] = useState(false)
   const [viewMode, setViewMode] = useState(() => {
     return localStorage.getItem('viewMode') || 'mobile'
@@ -23,6 +25,7 @@ export function Layout({ children }) {
 
   const handleSignOut = async () => {
     await signOut()
+    queryClient.clear() // Clear all cached queries on logout
     navigate('/login')
   }
 
