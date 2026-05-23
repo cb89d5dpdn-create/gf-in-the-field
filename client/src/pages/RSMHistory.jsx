@@ -86,7 +86,10 @@ function ObservationDetail({ obs, onSent }) {
           <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
             Overall Visit Comments (FSM)
           </p>
-          <div className="bg-gray-50 border-l-4 border-gf-teal rounded-lg px-4 py-3 text-sm text-gray-700 leading-relaxed whitespace-pre-line">
+          <div 
+            className="bg-white border border-gray-300 rounded-lg px-4 py-3 text-sm text-gray-800 leading-relaxed whitespace-pre-wrap select-all cursor-text"
+            style={{ userSelect: 'text', WebkitUserSelect: 'text' }}
+          >
             {obs.overall_comments}
           </div>
         </div>
