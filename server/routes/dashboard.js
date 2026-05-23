@@ -9,6 +9,11 @@ router.get('/', requireAuth, async (req, res, next) => {
   try {
     const { profile } = req
 
+    // Calculate YTD and MTD date boundaries
+    const now = new Date()
+    const ytdStart = `${now.getFullYear()}-01-01`
+    const mtdStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+
     if (profile.role === 'admin') {
       // Admin view: group RSMs by FSM
       const { data: fsms, error: fsmsError } = await supabaseAdmin
@@ -20,7 +25,7 @@ router.get('/', requireAuth, async (req, res, next) => {
 
       if (fsmsError) throw fsmsError
 
-      // For each FSM, get their RSMs with visit data
+      // For each FSM, get their RSMs with visit data + YTD/MTD counts
       const enrichedFsms = await Promise.all(
         fsms.map(async (fsm) => {
           const { data: rsms } = await supabaseAdmin
@@ -29,6 +34,20 @@ router.get('/', requireAuth, async (req, res, next) => {
             .eq('org_id', profile.org_id)
             .eq('fsm_id', fsm.id)
             .order('name')
+
+          // Get all observations for this FSM's RSMs (for YTD/MTD counts)
+          const rsmIds = (rsms || []).map(r => r.id)
+          
+          const { data: allObs } = rsmIds.length > 0 ? await supabaseAdmin
+            .from('observations')
+            .select('id, visit_date, rsm_id')
+            .eq('org_id', profile.org_id)
+            .in('rsm_id', rsmIds)
+            .in('status', ['generated', 'sent']) : { data: [] }
+
+          // Count YTD and MTD for this FSM
+          const ytdCount = (allObs || []).filter(o => o.visit_date >= ytdStart).length
+          const mtdCount = (allObs || []).filter(o => o.visit_date >= mtdStart).length
 
           // Enrich each RSM with visit stats
           const enrichedRsms = await Promise.all(
@@ -54,11 +73,15 @@ router.get('/', requireAuth, async (req, res, next) => {
             })
           )
 
-          return { ...fsm, rsms: enrichedRsms }
+          return { ...fsm, rsms: enrichedRsms, ytd_count: ytdCount, mtd_count: mtdCount }
         })
       )
 
-      res.json({ profile, fsms: enrichedFsms })
+      // Calculate total YTD/MTD for admin profile display
+      const adminYtd = enrichedFsms.reduce((sum, f) => sum + f.ytd_count, 0)
+      const adminMtd = enrichedFsms.reduce((sum, f) => sum + f.mtd_count, 0)
+
+      res.json({ profile: { ...profile, ytd_count: adminYtd, mtd_count: adminMtd }, fsms: enrichedFsms })
     } else {
       // Regular FSM view: flat RSM list
       const { data: rsms, error: rsmsError } = await supabaseAdmin
@@ -69,6 +92,18 @@ router.get('/', requireAuth, async (req, res, next) => {
         .order('name')
 
       if (rsmsError) throw rsmsError
+
+      // Get all observations for YTD/MTD counts
+      const rsmIds = rsms.map(r => r.id)
+      const { data: allObs } = rsmIds.length > 0 ? await supabaseAdmin
+        .from('observations')
+        .select('id, visit_date')
+        .eq('org_id', profile.org_id)
+        .in('rsm_id', rsmIds)
+        .in('status', ['generated', 'sent']) : { data: [] }
+
+      const ytdCount = (allObs || []).filter(o => o.visit_date >= ytdStart).length
+      const mtdCount = (allObs || []).filter(o => o.visit_date >= mtdStart).length
 
       // Enrich with visit stats
       const enriched = await Promise.all(
@@ -94,7 +129,7 @@ router.get('/', requireAuth, async (req, res, next) => {
         })
       )
 
-      res.json({ profile, rsms: enriched })
+      res.json({ profile: { ...profile, ytd_count: ytdCount, mtd_count: mtdCount }, rsms: enriched })
     }
   } catch (err) {
     next(err)

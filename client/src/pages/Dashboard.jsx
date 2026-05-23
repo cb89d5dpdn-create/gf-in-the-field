@@ -71,7 +71,9 @@ function FSMCard({ fsm, expanded, onToggle, onRSMClick }) {
         </svg>
         <div className="flex-1 min-w-0">
           <p className="font-bold text-gray-900">{fsm.name}</p>
-          <p className="text-sm text-gray-600">{fsm.state} · {rsmCount} RSM{rsmCount !== 1 ? 's' : ''}</p>
+          <p className="text-sm text-gray-600">
+            {fsm.state} · {rsmCount} RSM{rsmCount !== 1 ? 's' : ''} · YTD {fsm.ytd_count || 0} · MTD {fsm.mtd_count || 0}
+          </p>
         </div>
       </button>
       
@@ -130,6 +132,7 @@ export function Dashboard() {
               <p className="text-sm text-gray-500">
                 {data?.profile?.role === 'admin' ? 'Admin' : data?.profile?.state} · {' '}
                 {data?.fsms ? `${data.fsms.length} FSM${data.fsms.length !== 1 ? 's' : ''}` : `${data?.rsms?.length ?? 0} RSM${data?.rsms?.length !== 1 ? 's' : ''}`}
+                {' '}· YTD {data?.profile?.ytd_count || 0} · MTD {data?.profile?.mtd_count || 0}
               </p>
             </div>
           </div>
