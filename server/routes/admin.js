@@ -550,4 +550,42 @@ router.delete('/rsms/:id', async (req, res, next) => {
   }
 })
 
+
+// GET /api/admin/voice-profiles — List all FSM voice profiles for admin visibility
+router.get('/voice-profiles', async (req, res, next) => {
+  try {
+    const { profile } = req
+
+    const { data: profiles, error } = await supabaseAdmin
+      .from('fsm_voice_profiles')
+      .select(`
+        id,
+        profile_text,
+        observations_analysed,
+        gf_terms_detected,
+        last_generated_at,
+        fsm_profiles!inner(id, name, role, state)
+      `)
+      .eq('org_id', profile.org_id)
+      .order('last_generated_at', { ascending: false })
+
+    if (error) return next(error)
+
+    const formatted = (profiles || []).map(p => ({
+      fsm_id: p.fsm_profiles.id,
+      fsm_name: p.fsm_profiles.name,
+      role: p.fsm_profiles.role,
+      state: p.fsm_profiles.state,
+      observations_analysed: p.observations_analysed,
+      gf_terms: p.gf_terms_detected || [],
+      profile_text: p.profile_text,
+      last_generated: p.last_generated_at
+    }))
+
+    res.json({ profiles: formatted })
+  } catch (err) {
+    next(err)
+  }
+})
+
 module.exports = router

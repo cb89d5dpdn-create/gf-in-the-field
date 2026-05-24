@@ -6,7 +6,7 @@ import toast from 'react-hot-toast'
 import { SkeletonList } from '../components/Skeleton'
 
 export function AdminUsers() {
-  const [tab, setTab] = useState('admin') // 'admin', 'fsm', or 'rsm'
+  const [tab, setTab] = useState('admin') // 'admin', 'fsm', 'rsm', or 'voices'
   const queryClient = useQueryClient()
   
   // Use React Query for data fetching
@@ -26,6 +26,16 @@ export function AdminUsers() {
   const admins = data?.admins || []
   const fsms = data?.fsms || []
   const rsms = data?.rsms || []
+
+  // Fetch voice profiles separately
+  const { data: voiceData, isLoading: voiceLoading } = useQuery({
+    queryKey: ['voice-profiles'],
+    queryFn: async () => {
+      const result = await api.get('/api/admin/voice-profiles')
+      return result.profiles || []
+    },
+    enabled: tab === 'voices' // Only fetch when tab is active
+  })
   const [showAddModal, setShowAddModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingUser, setEditingUser] = useState(null)
@@ -262,6 +272,16 @@ export function AdminUsers() {
         >
           RSMs
         </button>
+        <button
+          onClick={() => setTab('voices')}
+          className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+            tab === 'voices' 
+              ? 'border-gf-teal text-gf-teal' 
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Voice Profiles
+        </button>
       </div>
 
       {loading ? (
@@ -271,12 +291,14 @@ export function AdminUsers() {
         </>
       ) : (
         <>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="w-full bg-gf-teal text-white font-semibold py-3 rounded-xl mb-6 hover:bg-gf-dark transition-colors"
-          >
-            + Add {tab === 'admin' ? 'Admin' : tab === 'fsm' ? 'FSM' : 'RSM'}
-          </button>
+          {tab !== 'voices' && (
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="w-full bg-gf-teal text-white font-semibold py-3 rounded-xl mb-6 hover:bg-gf-dark transition-colors"
+            >
+              + Add {tab === 'admin' ? 'Admin' : tab === 'fsm' ? 'FSM' : 'RSM'}
+            </button>
+          )}
 
           {tab === 'admin' && (
             <div className="space-y-3">
@@ -361,6 +383,60 @@ export function AdminUsers() {
                         Edit
                       </button>
                     </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {tab === 'voices' && (
+            <div className="space-y-4">
+              {voiceLoading ? (
+                <SkeletonList count={3} />
+              ) : voiceData?.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-gray-500 mb-2">No voice profiles generated yet.</p>
+                  <p className="text-sm text-gray-400">Profiles generate automatically after 3+ sent observations.</p>
+                </div>
+              ) : (
+                voiceData?.map((profile) => (
+                  <div
+                    key={profile.fsm_id}
+                    className="bg-white border border-gray-200 rounded-xl px-4 py-4"
+                  >
+                    <div className="mb-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="font-semibold text-gray-900">{profile.fsm_name}</p>
+                        <span className="text-xs text-gray-500">
+                          {profile.observations_analysed} observation{profile.observations_analysed !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-400">
+                        {profile.role === 'admin' ? 'Admin' : profile.state} · Last updated {new Date(profile.last_generated).toLocaleDateString('en-AU')}
+                      </p>
+                    </div>
+
+                    {profile.gf_terms?.length > 0 && (
+                      <div className="mb-3">
+                        <p className="text-xs font-medium text-gray-600 mb-1">Detected GF Terms:</p>
+                        <div className="flex flex-wrap gap-1">
+                          {profile.gf_terms.map((term, i) => (
+                            <span key={i} className="bg-gf-teal/10 text-gf-teal text-xs px-2 py-0.5 rounded">
+                              {term}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <details className="group">
+                      <summary className="text-sm text-gf-teal cursor-pointer hover:underline font-medium">
+                        View Full Profile
+                      </summary>
+                      <div className="mt-3 text-xs text-gray-600 whitespace-pre-wrap bg-gray-50 p-3 rounded border border-gray-200 max-h-96 overflow-y-auto">
+                        {profile.profile_text}
+                      </div>
+                    </details>
                   </div>
                 ))
               )}

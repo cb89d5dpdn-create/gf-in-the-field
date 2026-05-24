@@ -3,6 +3,7 @@ const { requireAuth } = require('../middleware/auth')
 const { supabaseAdmin } = require('../lib/supabase')
 const Anthropic = require('@anthropic-ai/sdk')
 const { Resend } = require('resend')
+const { generateVoiceProfile, getVoiceProfile } = require('../services/voiceProfileService')
 
 const SCORE_LABELS = {
   1: 'Needs Dev',
@@ -220,7 +221,10 @@ Write a coaching summary (3–4 paragraphs) that:
 • Use "observations" and "opportunities" language
 • Tone by average: 1.0–2.4 supportive/developmental | 2.5–3.4 balanced/constructive | 3.5–4.4 affirming/building capability | 4.5–5.0 reinforcing strong performance`
 
-    const systemPrompt = `You are an expert field sales coach writing a post-visit coaching summary for a Regional Sales Manager in an FMCG field sales team.
+    // Fetch voice profile if it exists
+    const voiceProfile = await getVoiceProfile(profile.id)
+
+    let systemPrompt = `You are an expert field sales coach writing a post-visit coaching summary for a Regional Sales Manager in an FMCG field sales team.
 
 Your primary job is to synthesize and professionally present the Field Sales Manager's own observations and comments. You are translating their field notes into a polished coaching summary — NOT generating new insights.
 
@@ -233,6 +237,19 @@ You never use corporate jargon or filler phrases.
 Write in second person ("you demonstrated", "your approach to...").
 
 CRITICAL: When the FSM has written detailed comments, use their language, specific examples, and observations as the foundation of your summary. The scores provide context, but the FSM's words are your primary source material.`
+
+    // Inject voice profile if it exists
+    if (voiceProfile) {
+      systemPrompt += `
+
+───────────────────────────────
+FSM VOICE PROFILE (learned from ${voiceProfile.observations_analysed} past observations):
+
+${voiceProfile.profile_text}
+
+CRITICAL: The summary must sound like this specific FSM wrote it and had it lightly polished — not like an AI wrote it on their behalf. Use their vocabulary. Mirror their sentence rhythm. Include their Goodman Fielder terminology naturally. If their style is brief and direct, keep the summary tight. If they write in detail, reflect that. A reader who knows this FSM should recognise their voice immediately.
+───────────────────────────────`
+    }
 
     // Call Claude
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -425,6 +442,11 @@ GF In The Field — gfinthefield.com.au`
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
+
+    // Fire-and-forget voice profile update (non-blocking)
+    generateVoiceProfile(profile.id).catch(err => 
+      console.error('Voice profile generation failed (non-blocking):', err)
+    )
 
     res.json({ success: true })
   } catch (err) {
