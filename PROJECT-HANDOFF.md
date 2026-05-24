@@ -50,12 +50,14 @@ gf-in-the-field/
 │   ├── middleware/
 │   │   └── auth.js                       # JWT verification + profile injection
 │   ├── routes/
-│   │   ├── admin.js                      # Admin endpoints (users, FSM/RSM CRUD)
+│   │   ├── admin.js                      # Admin endpoints (users, FSM/RSM CRUD, voice profiles)
 │   │   ├── areas.js                      # GET observation areas
 │   │   ├── auth.js                       # Login/logout (delegates to Supabase)
 │   │   ├── dashboard.js                  # Dashboard data (FSM/RSM list + stats)
 │   │   ├── observations.js               # CRUD + AI generation + email send
 │   │   └── rsms.js                       # RSM history endpoint
+│   ├── services/
+│   │   └── voiceProfileService.js        # Claude-powered FSM voice analysis
 │   ├── .env                              # Backend env (SUPABASE_SERVICE_ROLE_KEY, etc.)
 │   ├── index.js                          # Express server entry point
 │   └── package.json
@@ -63,7 +65,8 @@ gf-in-the-field/
 ├── supabase/                        # Database schema + seed data
 │   ├── migrations/
 │   │   ├── 001_initial_schema.sql        # Tables, indexes, RLS policies
-│   │   └── 002_preserve_rsm_history.sql  # FSM deletion fix + overall_comments
+│   │   ├── 002_preserve_rsm_history.sql  # FSM deletion fix + overall_comments
+│   │   └── 003_voice_profiles.sql        # Voice profile learning + test data exclusion
 │   └── seed/
 │       ├── 001_seed_data.sql             # 1 org, 6 FSMs (5 FSM + 1 admin), 34 RSMs, 9 areas
 │       ├── 001_seed_data_FIXED.sql       # (Backup - same as above)
@@ -90,7 +93,7 @@ gf-in-the-field/
 - **Pages:** PascalCase (e.g., `Dashboard.jsx`, `NewObservation.jsx`)
 - **Routes:** kebab-case API paths (e.g., `/api/observations`, `/api/rsms/:id/history`)
 - **Database:** snake_case (e.g., `fsm_profiles`, `observation_areas`)
-- **Migrations:** Sequential numbering (`001_`, `002_`)
+- **Migrations:** Sequential numbering (`001_`, `002_`, `003_`)
 
 ---
 
@@ -108,13 +111,14 @@ gf-in-the-field/
 | **RSM History** | ✅ Live | Past observations, draft badges, swipe-to-delete, view details |
 | **Observation Detail** | ✅ Live | Scores table, FSM comments (copyable), editable coaching summary |
 | **Change Password** | ✅ Live | Self-service password update, show/hide toggle |
-| **Admin User Management** | ✅ Live | 3 tabs (Admins/FSMs/RSMs), full CRUD, edit modals, no delete buttons |
+| **Admin User Management** | ✅ Live | 4 tabs (Admins/FSMs/RSMs/Voice Profiles), full CRUD, edit modals |
 | **React Query caching** | ✅ Live | 5-min staleTime, 10-min cacheTime, cache cleared on logout |
 | **Skeleton loading states** | ✅ Live | Replaced spinners with placeholder boxes (feels faster) |
 | **Mobile-first responsive** | ✅ Live | Max-w-2xl default, admin can toggle to desktop (max-w-6xl) |
 | **GF Branding** | ✅ Live | Teal (#006B7D), GF logo, ROGER logo, correct fonts |
 | **Password reset flow** | ✅ Live | Email link → reset page → confirm new password |
 | **Draft observations** | ✅ Live | Visible in RSM history, resumable via `/observations/:id/continue` |
+| **FSM Voice Profiles (V1.1)** | ✅ Live | Auto-learns writing style after 3+ observations, personalizes summaries |
 
 ### 🚧 **Partially Complete / Known Gaps**
 | Feature | Status | What's Missing |
@@ -153,7 +157,7 @@ gf-in-the-field/
 - **URL:** `https://ivbhxhhxldqdgkbltywv.supabase.co`
 - **Region:** Australia Southeast (Sydney)
 
-### **Schema (Applied Migrations: 001 + 002)**
+### **Schema (Applied Migrations: 001 + 002 + 003)**
 
 #### **organisations**
 ```sql
@@ -228,13 +232,15 @@ CREATE TABLE observations (
   ai_summary text,
   edited_summary text,
   overall_comments text,  -- ⚠️ Added in migration 002
+  exclude_from_voice_profile boolean DEFAULT false,  -- ⚠️ Added in migration 003
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
 );
 ```
-- **Current data:** Test observations only (none in production)
+- **Current data:** 15 test observations (all flagged `exclude_from_voice_profile = true`)
 - **Indexes:** `idx_observations_org_id`, `idx_observations_fsm_id`, `idx_observations_rsm_id`, `idx_observations_status`
 - **⚠️ Key change (migration 002):** Added `overall_comments` field (FSM free-text notes)
+- **⚠️ Key change (migration 003):** Added `exclude_from_voice_profile` boolean (all existing test observations flagged true)
 
 #### **observation_scores**
 ```sql
@@ -251,6 +257,27 @@ CREATE TABLE observation_scores (
 - **Indexes:** `idx_observation_scores_observation_id`, `idx_observation_scores_area_id`
 - **Notes:** 1 row per area per observation (9 rows per observation)
 
+#### **fsm_voice_profiles**
+```sql
+CREATE TABLE fsm_voice_profiles (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  fsm_id uuid NOT NULL REFERENCES fsm_profiles(id) ON DELETE CASCADE,
+  org_id uuid NOT NULL REFERENCES organisations(id) ON DELETE CASCADE,
+  profile_text text NOT NULL,
+  observations_analysed integer NOT NULL DEFAULT 0,
+  gf_terms_detected text[],
+  last_generated_at timestamptz DEFAULT now(),
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  UNIQUE(fsm_id)
+);
+```
+- **Current data:** None (generates after 3+ qualifying observations)
+- **Indexes:** `idx_fsm_voice_profiles_fsm_id`, `idx_fsm_voice_profiles_org_id`
+- **⚠️ Added in migration 003:** Auto-generates personalized voice profiles from FSM writing patterns
+- **Purpose:** Stores learned vocabulary, GF terminology, writing style, and tone for each FSM/admin
+- **RLS:** FSMs can read own profile, service role can manage all
+
 ### **Row-Level Security (RLS)**
 All tables have RLS enabled. Key policies:
 - **FSMs** see only their own RSMs/observations
@@ -261,6 +288,87 @@ All tables have RLS enabled. Key policies:
 - **Provider:** Email/Password only (no OAuth)
 - **Users stored in:** `auth.users` (Supabase managed)
 - **Profile link:** `fsm_profiles.user_id → auth.users.id`
+
+---
+
+## 3.5. V1.1 Feature: FSM Voice Profiles (Shipped 2026-05-24)
+
+### **What It Does**
+Auto-learns each FSM's unique writing style, vocabulary, and Goodman Fielder terminology after 3+ sent observations. Future AI-generated coaching summaries are then personalized to sound like that specific FSM wrote them.
+
+### **Why It Matters**
+The longer someone uses the platform, the more their summaries sound like *them* — not like generic AI output. This creates stickiness and makes coaching feel authentic. Shane's summaries will sound like Shane. Blake's will sound like Blake.
+
+### **Implementation Status: ✅ COMPLETE**
+
+| Component | Status | Details |
+|---|---|---|
+| **Migration 003 applied** | ✅ | `exclude_from_voice_profile` column + `fsm_voice_profiles` table created |
+| **Test data clean slate** | ✅ | 15 existing test observations flagged as excluded (learning starts from real usage only) |
+| **voiceProfileService.js built** | ✅ | Claude Sonnet 4.5 analyzes 3-20 most recent observations |
+| **Wired to observation send** | ✅ | Auto-generates/refreshes profile after each send (fire-and-forget, non-blocking) |
+| **Wired to summary generation** | ✅ | Injects learned voice into Claude system prompt when profile exists |
+| **Admin visibility added** | ✅ | Voice Profiles tab in Admin Users page (FSM name, obs count, GF terms, full profile) |
+
+### **Clean Slate Date: 2026-05-24**
+Migration 003 applied on this date. All observations created **before** this timestamp are excluded from voice profile learning. Only real observations submitted **after** this date contribute to voice profiles.
+
+### **Learning Threshold**
+- **Observations 1-2:** Standard AI summaries (no personalization yet)
+- **Observation 3:** Voice profile generates automatically in background
+- **Observation 4+:** Summaries reflect learned vocabulary, GF terminology, writing style, and tone
+- **Profile updates:** After every new observation sent (always uses last 20 observations)
+
+### **What Gets Learned**
+1. **Vocabulary & Phrases** — 8-12 specific words/expressions the FSM uses repeatedly
+2. **GF/Industry Terms** — Company-specific terminology (e.g., "Perfect Store", "ranging", "sell-in")
+3. **Writing Style** — Brief vs detailed, questions vs statements, fragments vs full sentences
+4. **Tone** — Encouraging, direct, matter-of-fact, enthusiastic
+5. **Summary Instruction** — Distilled guidance for Claude on how to mirror this person's voice
+
+### **End-to-End Test Plan**
+
+**For Ben/Blake to validate once Shane submits real observations:**
+
+1. **Verify clean slate:**
+   ```sql
+   SELECT count(*) FROM observations WHERE exclude_from_voice_profile = true;
+   -- Should return: 15
+   ```
+
+2. **Submit 3 observations as Shane:**
+   - After observation #3 sends, check Railway logs for:
+     ```
+     ✅ Voice profile generated for FSM <id> using 3 observations
+     ```
+
+3. **Check Admin UI:**
+   - Navigate to: Admin Users → Voice Profiles tab
+   - Should see: Shane's profile with 3 observations analyzed
+   - Click "View Full Profile" → see vocabulary, GF terms, writing style
+
+4. **Submit observation #4:**
+   - Generate summary → compare to observations #1-2
+   - Should feel more "Shane-like" (uses his phrases, mirrors his style)
+
+5. **Profile refinement:**
+   - Each new observation refreshes the profile
+   - GF terms list should grow as Shane uses more company-specific language
+   - Writing style description should become more accurate over time
+
+### **Admin Visibility**
+- **Tab location:** Admin Users page → "Voice Profiles" (4th tab, far right)
+- **Who can see:** Admins only (Ben, Blake)
+- **FSM visibility:** None (FSMs never see voice learning happening, just improved summaries)
+- **Data shown:** FSM name, role, state, observation count, detected GF terms, full profile text, last updated timestamp
+
+### **Technical Notes**
+- **Model:** Claude Sonnet 4.5 (`claude-sonnet-4-20250514`)
+- **Max tokens:** 800 (profile generation)
+- **Observation window:** Last 20 sent observations (to keep profile current as writing evolves)
+- **Profile storage:** `fsm_voice_profiles.profile_text` (~150-200 words)
+- **Performance:** Profile generation runs async after email send — zero impact on send response time
+- **Failure handling:** If profile generation fails, logs error but doesn't block email send
 
 ---
 
