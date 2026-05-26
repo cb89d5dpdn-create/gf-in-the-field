@@ -63,13 +63,21 @@ router.get('/', requireAuth, async (req, res, next) => {
               const total_visits = obs?.length || 0
               const last_visit_date = obs?.[0]?.visit_date || null
 
-              let last_avg_score = null
-              if (obs?.[0]?.observation_scores?.length > 0) {
-                const scores = obs[0].observation_scores.map((s) => s.score)
-                last_avg_score = scores.reduce((a, b) => a + b, 0) / scores.length
+              // Calculate overall average across ALL observations (not just last one)
+              let avg_score = null
+              if (obs && obs.length > 0) {
+                const observationAverages = obs.map(observation => {
+                  const scores = observation.observation_scores?.map(s => s.score) || []
+                  if (scores.length === 0) return null
+                  return scores.reduce((a, b) => a + b, 0) / scores.length
+                }).filter(avg => avg !== null)
+
+                if (observationAverages.length > 0) {
+                  avg_score = observationAverages.reduce((a, b) => a + b, 0) / observationAverages.length
+                }
               }
 
-              return { ...rsm, total_visits, last_visit_date, last_avg_score }
+              return { ...rsm, total_visits, last_visit_date, avg_score }
             })
           )
 
@@ -119,13 +127,21 @@ router.get('/', requireAuth, async (req, res, next) => {
           const total_visits = obs?.length || 0
           const last_visit_date = obs?.[0]?.visit_date || null
 
-          let last_avg_score = null
-          if (obs?.[0]?.observation_scores?.length > 0) {
-            const scores = obs[0].observation_scores.map((s) => s.score)
-            last_avg_score = scores.reduce((a, b) => a + b, 0) / scores.length
+          // Calculate overall average across ALL observations (not just last one)
+          let avg_score = null
+          if (obs && obs.length > 0) {
+            const observationAverages = obs.map(observation => {
+              const scores = observation.observation_scores?.map(s => s.score) || []
+              if (scores.length === 0) return null
+              return scores.reduce((a, b) => a + b, 0) / scores.length
+            }).filter(avg => avg !== null)
+
+            if (observationAverages.length > 0) {
+              avg_score = observationAverages.reduce((a, b) => a + b, 0) / observationAverages.length
+            }
           }
 
-          return { ...rsm, total_visits, last_visit_date, last_avg_score }
+          return { ...rsm, total_visits, last_visit_date, avg_score }
         })
       )
 

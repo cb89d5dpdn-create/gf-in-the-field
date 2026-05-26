@@ -20,7 +20,7 @@ function scoreDot(avg) {
 }
 
 function RSMCard({ rsm, onClick, isNested }) {
-  const dot = scoreDot(rsm.last_avg_score)
+  const dot = scoreDot(rsm.avg_score)
   return (
     <button
       onClick={onClick}
@@ -37,9 +37,9 @@ function RSMCard({ rsm, onClick, isNested }) {
             : `${rsm.total_visits} visit${rsm.total_visits > 1 ? 's' : ''} · Last: ${rsm.last_visit_date ? new Date(rsm.last_visit_date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' }) : '—'}`}
         </p>
       </div>
-      {rsm.last_avg_score != null && (
+      {rsm.avg_score != null && (
         <div className="text-right flex-shrink-0">
-          <span className="text-lg font-bold text-gray-800">{rsm.last_avg_score.toFixed(1)}</span>
+          <span className="text-lg font-bold text-gray-800">{rsm.avg_score.toFixed(1)}</span>
           <span className="text-xs text-gray-400">/5</span>
         </div>
       )}
