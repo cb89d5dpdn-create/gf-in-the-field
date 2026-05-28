@@ -394,9 +394,9 @@ router.post('/:id/send', requireAuth, async (req, res, next) => {
     const strength1 = strengthsWithLabels[0]
     const strength2 = strengthsWithLabels[1]
     
-    // Only show strengths section if scores are 4 or higher
-    const strengthsSection = (strength1.score >= 4 || strength2.score >= 4)
-      ? `\nKEY STRENGTHS\n${strength1.score >= 4 ? `• ${strength1.label}\n` : ''}${strength2.score >= 4 ? `• ${strength2.label}\n` : ''}`
+    // Show top 2 strengths unless BOTH are ≤ 2 (managing out territory)
+    const strengthsSection = (strength1.score > 2 || strength2.score > 2)
+      ? `\nKEY STRENGTHS\n• ${strength1.label}\n• ${strength2.label}\n`
       : ''
     
     const emailText = `Hi ${profile.name},
