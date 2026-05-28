@@ -135,6 +135,7 @@ export function AdminUsers() {
       setRsmName('')
       setRsmEmail('')
       setRsmState('NSW')
+      setRsmFsmId('')
       refreshData()
     } catch (e) {
       toast.error(e.message)
@@ -293,7 +294,13 @@ export function AdminUsers() {
         <>
           {tab !== 'voices' && (
             <button
-              onClick={() => setShowAddModal(true)}
+              onClick={() => {
+                // Set default FSM when opening RSM modal
+                if (tab === 'rsm' && fsms.length > 0 && !rsmFsmId) {
+                  setRsmFsmId(fsms[0].id)
+                }
+                setShowAddModal(true)
+              }}
               className="w-full bg-gf-teal text-white font-semibold py-3 rounded-xl mb-6 hover:bg-gf-dark transition-colors"
             >
               + Add {tab === 'admin' ? 'Admin' : tab === 'fsm' ? 'FSM' : 'RSM'}
@@ -697,7 +704,13 @@ export function AdminUsers() {
                 <div className="flex gap-3 pt-2">
                   <button
                     type="button"
-                    onClick={() => setShowAddModal(false)}
+                    onClick={() => {
+                      setShowAddModal(false)
+                      setRsmName('')
+                      setRsmEmail('')
+                      setRsmState('NSW')
+                      setRsmFsmId('')
+                    }}
                     className="flex-1 bg-gray-200 text-gray-700 font-semibold py-3 rounded-lg hover:bg-gray-300 transition-colors"
                   >
                     Cancel
