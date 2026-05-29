@@ -5,13 +5,17 @@ import { useAuth } from '../contexts/AuthContext'
 import { GoodmanFielderLogo } from './GoodmanFielderLogo'
 
 export function Layout({ children }) {
-  const { profile, signOut } = useAuth()
+  const { profile, session, signOut } = useAuth()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [menuOpen, setMenuOpen] = useState(false)
   const [viewMode, setViewMode] = useState(() => {
     return localStorage.getItem('viewMode') || 'mobile'
   })
+  
+  // Ben's user ID for special features
+  const BEN_USER_ID = 'bb125db8-e6e7-4f32-af66-523186c2d47e'
+  const isBen = session?.user?.id === BEN_USER_ID
 
   useEffect(() => {
     localStorage.setItem('viewMode', viewMode)
@@ -79,6 +83,16 @@ export function Layout({ children }) {
                 >
                   Manage Users
                 </Link>
+
+                {isBen && (
+                  <Link
+                    to="/admin/login-stats"
+                    onClick={() => setMenuOpen(false)}
+                    className="block px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    📊 Login Activity
+                  </Link>
+                )}
 
                 <button
                   onClick={() => { toggleViewMode(); setMenuOpen(false); }}

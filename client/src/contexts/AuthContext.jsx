@@ -14,8 +14,13 @@ export function AuthProvider({ children }) {
       setSession(session)
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session)
+      
+      // Track successful sign-in (silently, don't block login)
+      if (event === 'SIGNED_IN' && session) {
+        api.post('/api/login-tracking/record').catch(() => {})
+      }
     })
 
     return () => subscription.unsubscribe()
