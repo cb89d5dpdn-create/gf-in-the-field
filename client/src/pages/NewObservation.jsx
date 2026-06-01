@@ -146,7 +146,7 @@ function StepScoring({ areas, scores, comments, overallComments, onChange, onCom
           rows={4}
         />
         <p className="text-xs text-gray-500 mt-2">
-          💡 Tip: Tap 🎤 to speak your comments, or type. Your notes will be the foundation of the coaching summary.
+          💡 Tip: Tap to speak your comments, or type. Your notes will be the foundation of the coaching summary.
         </p>
       </div>
 
@@ -178,7 +178,7 @@ function StepScoring({ areas, scores, comments, overallComments, onChange, onCom
                 <VoiceInput
                   value={comments[area.id] || ''}
                   onChange={(text) => onComment(area.id, text)}
-                  placeholder="Key observations / examples... (tap 🎤 to speak or type)"
+                  placeholder="Key observations / examples... (tap to speak or type)"
                   rows={2}
                   className="border-gray-200"
                 />
