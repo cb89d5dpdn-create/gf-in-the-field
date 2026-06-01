@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Layout } from '../components/Layout'
+import { VoiceInput } from '../components/VoiceInput'
 import { api } from '../lib/api'
 import toast from 'react-hot-toast'
 
@@ -138,15 +139,14 @@ function StepScoring({ areas, scores, comments, overallComments, onChange, onCom
         <label className="block text-sm font-semibold text-gray-900 mb-2">
           Overall Visit Comments
         </label>
-        <textarea
+        <VoiceInput
           value={overallComments}
-          onChange={(e) => onOverallComment(e.target.value)}
+          onChange={onOverallComment}
           placeholder="Overall observations from today's visit... Key themes, standout moments, patterns across stores, coaching priorities..."
           rows={4}
-          className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gf-teal resize-none"
         />
         <p className="text-xs text-gray-500 mt-2">
-          💡 Tip: Your written comments will be the foundation of the coaching summary.
+          💡 Tip: Tap 🎤 to speak your comments, or type. Your notes will be the foundation of the coaching summary.
         </p>
       </div>
 
@@ -175,12 +175,12 @@ function StepScoring({ areas, scores, comments, overallComments, onChange, onCom
                     />
                   ))}
                 </div>
-                <textarea
+                <VoiceInput
                   value={comments[area.id] || ''}
-                  onChange={(e) => onComment(area.id, e.target.value)}
-                  placeholder="Key observations / examples... (optional)"
+                  onChange={(text) => onComment(area.id, text)}
+                  placeholder="Key observations / examples... (tap 🎤 to speak or type)"
                   rows={2}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gf-teal resize-none"
+                  className="border-gray-200"
                 />
               </div>
             ))}
