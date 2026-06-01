@@ -50,7 +50,7 @@ function ObservationDetail({ obs, onSent }) {
         <div>
           {obs.fsm_profiles && (
             <p className="text-xs font-medium text-gray-700 mb-1">
-              Observed by: {obs.fsm_profiles.name}{obs.fsm_profiles.state ? ` (${obs.fsm_profiles.state})` : ''}
+              Observed by: {obs.fsm_profiles.name}{obs.fsm_profiles.role !== 'admin' && obs.fsm_profiles.state ? ` (${obs.fsm_profiles.state})` : ''}
             </p>
           )}
           <p className="text-sm text-gray-500">{new Date(obs.visit_date).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })}</p>
