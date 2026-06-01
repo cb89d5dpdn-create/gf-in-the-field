@@ -56,7 +56,8 @@ router.get('/:id/history', requireAuth, async (req, res, next) => {
         observation_scores(
           area_id, score, comments,
           observation_areas(label, group_name)
-        )
+        ),
+        fsm_profiles(name, state)
       `)
       .eq('org_id', profile.org_id)
       .eq('rsm_id', id)

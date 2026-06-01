@@ -68,7 +68,8 @@ router.get('/:id', requireAuth, async (req, res, next) => {
       .select(`
         id, visit_date, location, status, ai_summary, edited_summary, overall_comments,
         observation_scores(area_id, score, comments, observation_areas(label, group_name)),
-        rsms(name)
+        rsms(name),
+        fsm_profiles(name, state)
       `)
       .eq('id', id)
       .eq('org_id', profile.org_id)

@@ -48,6 +48,11 @@ function ObservationDetail({ obs, onSent }) {
     <div className="space-y-4 pb-24">
       <div className="flex items-center justify-between">
         <div>
+          {obs.fsm_profiles && (
+            <p className="text-xs font-medium text-gray-700 mb-1">
+              Observed by: {obs.fsm_profiles.name}{obs.fsm_profiles.state ? ` (${obs.fsm_profiles.state})` : ''}
+            </p>
+          )}
           <p className="text-sm text-gray-500">{new Date(obs.visit_date).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })}</p>
           {obs.location && <p className="text-sm text-gray-600">{obs.location}</p>}
         </div>
@@ -230,6 +235,11 @@ function SwipeableObservation({ obs, isDraft, onDelete, onClick }) {
               {new Date(obs.visit_date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
             </p>
             <p className="text-sm text-gray-500 mt-0.5">{obs.location || 'Location not recorded'}</p>
+            {obs.fsm_profiles && (
+              <p className="text-xs text-gray-400 mt-0.5">
+                by {obs.fsm_profiles.name.split(' ')[0]} {obs.fsm_profiles.name.split(' ').slice(-1)[0]?.charAt(0)}.
+              </p>
+            )}
           </div>
           <div className="text-right flex flex-col items-end gap-1">
             {isDraft && (
