@@ -63,7 +63,7 @@ ${areaComments || '  (no area comments)'}
 
     // 3. Call Claude to generate the voice profile
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-5',
       max_tokens: 800,
       system: `You are analysing a field sales manager's coaching notes to extract their personal writing style, vocabulary, and company-specific terminology.
 Your output will be used to make future AI-generated coaching summaries sound like this specific person wrote them.
