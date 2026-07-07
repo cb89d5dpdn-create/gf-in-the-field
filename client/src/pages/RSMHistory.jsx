@@ -280,7 +280,7 @@ function SwipeableObservation({ obs, isDraft, onDelete, onClick }) {
 
   const handleDelete = () => {
     if (confirm(`Delete this ${isDraft ? 'draft' : 'observation'}?`)) {
-      onDelete(obs.id)
+      onDelete(obs.id, obs.kind)
       setSwipeOffset(0)
       setShowDeleteConfirm(false)
     }
