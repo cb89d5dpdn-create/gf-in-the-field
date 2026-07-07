@@ -160,6 +160,43 @@ RULES
   }
 })
 
+// DELETE /api/work-behind/:id — delete a work behind observation
+router.delete('/:id', requireAuth, async (req, res, next) => {
+  try {
+    const { profile } = req
+    const { id } = req.params
+
+    let query = supabaseAdmin
+      .from('work_behind_observations')
+      .select('id')
+      .eq('id', id)
+      .eq('org_id', profile.org_id)
+    if (profile.role !== 'admin') query = query.eq('fsm_id', profile.id)
+    const { data: obs, error: obsError } = await query.single()
+    if (obsError || !obs) return res.status(404).json({ error: 'Observation not found' })
+
+    // Delete images from storage first
+    const { data: images } = await supabaseAdmin
+      .from('work_behind_images')
+      .select('storage_path')
+      .eq('observation_id', id)
+    if (images?.length) {
+      await supabaseAdmin.storage.from('work-behind-images').remove(images.map(i => i.storage_path))
+    }
+
+    // Delete observation (cascade handles work_behind_images rows)
+    const { error: delError } = await supabaseAdmin
+      .from('work_behind_observations')
+      .delete()
+      .eq('id', id)
+    if (delError) throw delError
+
+    res.json({ success: true })
+  } catch (err) {
+    next(err)
+  }
+})
+
 // POST /api/work-behind/:id/images — save image record after client-side upload
 router.post('/:id/images', requireAuth, async (req, res, next) => {
   try {

@@ -240,6 +240,7 @@ function WorkBehindDetail({ obs }) {
 }
 
 function SwipeableObservation({ obs, isDraft, onDelete, onClick }) {
+  const kind = obs.kind || 'observation'
   const [swipeOffset, setSwipeOffset] = useState(0)
   const [isSwiping, setIsSwiping] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -306,7 +307,7 @@ function SwipeableObservation({ obs, isDraft, onDelete, onClick }) {
       {/* Delete button background */}
       <div className="absolute inset-0 bg-red-500 rounded-xl flex items-center justify-end px-6">
         <button
-          onClick={handleDelete}
+          onClick={() => handleDelete(obs.id, kind)}
           className="text-white font-semibold text-sm"
         >
           Delete
@@ -501,9 +502,12 @@ export function RSMHistory() {
     }
   }
 
-  const handleDelete = async (obsId) => {
+  const handleDelete = async (obsId, kind) => {
     try {
-      await api.delete(`/api/observations/${obsId}`)
+      const endpoint = kind === 'work_behind'
+        ? `/api/work-behind/${obsId}`
+        : `/api/observations/${obsId}`
+      await api.delete(endpoint)
       toast.success('Observation deleted')
       refreshHistory()
     } catch (e) {
