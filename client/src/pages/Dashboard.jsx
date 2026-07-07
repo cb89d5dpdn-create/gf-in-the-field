@@ -72,7 +72,7 @@ function FSMCard({ fsm, expanded, onToggle, onRSMClick }) {
         <div className="flex-1 min-w-0">
           <p className="font-bold text-gray-900">{fsm.name}</p>
           <p className="text-sm text-gray-600">
-            {fsm.state} · {rsmCount} RSM{rsmCount !== 1 ? 's' : ''} · YTD {fsm.ytd_count || 0} · MTD {fsm.mtd_count || 0}
+            {fsm.state} · {rsmCount} RSM{rsmCount !== 1 ? 's' : ''} · YTD {fsm.ytd_count || 0} · MTD {fsm.mtd_count || 0}{fsm.wbo_count > 0 ? ` · WBO ${fsm.wbo_count}` : ''}
           </p>
         </div>
       </button>

@@ -81,7 +81,15 @@ router.get('/', requireAuth, async (req, res, next) => {
             })
           )
 
-          return { ...fsm, rsms: enrichedRsms, ytd_count: ytdCount, mtd_count: mtdCount }
+          // WBO count — only this FSM's own work behind observations
+          const { count: wboCount } = await supabaseAdmin
+            .from('work_behind_observations')
+            .select('id', { count: 'exact', head: true })
+            .eq('org_id', profile.org_id)
+            .eq('fsm_id', fsm.id)
+            .in('status', ['sent', 'generated'])
+
+          return { ...fsm, rsms: enrichedRsms, ytd_count: ytdCount, mtd_count: mtdCount, wbo_count: wboCount || 0 }
         })
       )
 
@@ -145,7 +153,15 @@ router.get('/', requireAuth, async (req, res, next) => {
         })
       )
 
-      res.json({ profile: { ...profile, ytd_count: ytdCount, mtd_count: mtdCount }, rsms: enriched })
+      // WBO count for this FSM
+      const { count: wboCount } = await supabaseAdmin
+        .from('work_behind_observations')
+        .select('id', { count: 'exact', head: true })
+        .eq('org_id', profile.org_id)
+        .eq('fsm_id', profile.id)
+        .in('status', ['sent', 'generated'])
+
+      res.json({ profile: { ...profile, ytd_count: ytdCount, mtd_count: mtdCount, wbo_count: wboCount || 0 }, rsms: enriched })
     }
   } catch (err) {
     next(err)
