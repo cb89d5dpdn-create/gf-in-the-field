@@ -38,14 +38,14 @@ router.get('/', requireAuth, async (req, res, next) => {
           // Get all observations for this FSM's RSMs (for YTD/MTD counts)
           const rsmIds = (rsms || []).map(r => r.id)
           
-          const { data: allObs } = rsmIds.length > 0 ? await supabaseAdmin
+          // YTD/MTD: only count observations this FSM personally submitted
+          const { data: allObs } = await supabaseAdmin
             .from('observations')
-            .select('id, visit_date, rsm_id')
+            .select('id, visit_date')
             .eq('org_id', profile.org_id)
-            .in('rsm_id', rsmIds)
-            .in('status', ['generated', 'sent']) : { data: [] }
+            .eq('fsm_id', fsm.id)
+            .in('status', ['generated', 'sent'])
 
-          // Count YTD and MTD for this FSM
           const ytdCount = (allObs || []).filter(o => o.visit_date >= ytdStart).length
           const mtdCount = (allObs || []).filter(o => o.visit_date >= mtdStart).length
 
