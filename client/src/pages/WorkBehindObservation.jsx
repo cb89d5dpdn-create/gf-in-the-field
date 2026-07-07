@@ -147,7 +147,7 @@ function StepNotes({
   scores, onScore,
   notes, onNote,
   images, onAddImage, onDeleteImage,
-  onNext, onSaveDraft, saving,
+  onNext, generating, onSaveDraft, saving,
 }) {
   const fileInputRef = useRef(null)
   const [uploading, setUploading] = useState(false)
@@ -328,10 +328,18 @@ function StepNotes({
         <div className="max-w-2xl mx-auto flex gap-3">
           <button
             onClick={onNext}
-            disabled={!allScored}
+            disabled={!allScored || generating || saving}
             className="flex-1 bg-gf-teal text-white font-semibold py-4 rounded-xl hover:bg-gf-dark disabled:opacity-50 transition-colors text-sm"
           >
-            {allScored ? 'Review & Send' : `Score all ${WB_SECTIONS.length} first`}
+            {generating ? (
+              <span className="flex items-center justify-center gap-2">
+                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                </svg>
+                Generating...
+              </span>
+            ) : allScored ? 'Generate Summary' : `Score all ${WB_SECTIONS.length} first`}
           </button>
           <button
             onClick={onSaveDraft}
@@ -347,8 +355,7 @@ function StepNotes({
 }
 
 // ── Step 4: Review + Send ────────────────────────────────────────────────────
-function StepReview({ rsm, visitDate, location, overallComments, scores, notes, images,
-  extraNotes, onExtraNotesChange, onSend, sending }) {
+function StepReview({ rsm, visitDate, location, scores, images, summary, onSummaryChange, onSend, sending }) {
 
   const formattedDate = new Date(visitDate).toLocaleDateString('en-AU', {
     day: 'numeric', month: 'long', year: 'numeric',
@@ -366,31 +373,7 @@ function StepReview({ rsm, visitDate, location, overallComments, scores, notes, 
           Work Behind
         </span>
       </div>
-      <h2 className="text-lg font-bold text-gray-900">Review & Send</h2>
-
-      {/* Header card */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden divide-y divide-gray-100">
-        <div className="px-4 py-3">
-          <p className="text-xs text-gray-500">RSM</p>
-          <p className="font-semibold text-gray-900">{rsm.name}</p>
-        </div>
-        <div className="px-4 py-3">
-          <p className="text-xs text-gray-500">Date</p>
-          <p className="font-semibold text-gray-900">{formattedDate}</p>
-        </div>
-        {location && (
-          <div className="px-4 py-3">
-            <p className="text-xs text-gray-500">Location</p>
-            <p className="font-semibold text-gray-900">{location}</p>
-          </div>
-        )}
-        {avg && (
-          <div className="px-4 py-3">
-            <p className="text-xs text-gray-500">Average Score</p>
-            <p className="font-semibold text-gray-900">{avg}/5 — {SCORE_LABELS[Math.round(avg)]}</p>
-          </div>
-        )}
-      </div>
+      <h2 className="text-lg font-bold text-gray-900">Review &amp; Send</h2>
 
       {/* Score table */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
@@ -401,14 +384,33 @@ function StepReview({ rsm, visitDate, location, overallComments, scores, notes, 
                 <td className="px-4 py-3 text-gray-700">{section.label}</td>
                 <td className="px-4 py-3 text-right font-semibold text-gray-900">
                   {scores[section.scoreKey]
-                    ? <>{scores[section.scoreKey]}/5 <span className="ml-1 text-xs font-normal text-gray-400">{SCORE_LABELS[scores[section.scoreKey]]}</span></>
+                    ? <>{scores[section.scoreKey]}/5{' '}<span className="ml-1 text-xs font-normal text-gray-400">{SCORE_LABELS[scores[section.scoreKey]]}</span></>
                     : <span className="text-gray-400 font-normal">—</span>
                   }
                 </td>
               </tr>
             ))}
+            {avg && (
+              <tr className="bg-gray-50">
+                <td className="px-4 py-3 text-gray-500 text-xs font-medium uppercase tracking-wide">Average</td>
+                <td className="px-4 py-3 text-right font-bold text-gray-900">{avg}/5</td>
+              </tr>
+            )}
           </tbody>
         </table>
+      </div>
+
+      {/* AI Summary (editable) */}
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-2">
+          Observation Summary <span className="font-normal text-gray-400">(edit before sending)</span>
+        </label>
+        <textarea
+          value={summary}
+          onChange={(e) => onSummaryChange(e.target.value)}
+          rows={10}
+          className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gf-teal resize-none"
+        />
       </div>
 
       {/* Photos preview */}
@@ -429,25 +431,11 @@ function StepReview({ rsm, visitDate, location, overallComments, scores, notes, 
         </div>
       )}
 
-      {/* Additional notes */}
-      <div>
-        <label className="block text-sm font-semibold text-gray-700 mb-2">
-          Additional Notes <span className="font-normal text-gray-400">(optional — edit before sending)</span>
-        </label>
-        <textarea
-          value={extraNotes}
-          onChange={(e) => onExtraNotesChange(e.target.value)}
-          rows={4}
-          placeholder="Any additional context to include in the email..."
-          className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gf-teal resize-none"
-        />
-      </div>
-
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-4">
         <div className="max-w-2xl mx-auto">
           <button
             onClick={onSend}
-            disabled={sending}
+            disabled={sending || !summary.trim()}
             className="w-full bg-gf-teal text-white font-semibold py-4 rounded-xl hover:bg-gf-dark disabled:opacity-50 transition-colors text-base"
           >
             {sending ? 'Sending...' : 'Send to My Email'}
@@ -470,8 +458,9 @@ export function WorkBehindObservation() {
   const [scores, setScores] = useState({})
   const [notes, setNotes] = useState({})
   const [images, setImages] = useState([])
-  const [extraNotes, setExtraNotes] = useState('')
+  const [summary, setSummary] = useState('')
   const [saving, setSaving] = useState(false)
+  const [generating, setGenerating] = useState(false)
   const [sending, setSending] = useState(false)
 
   useEffect(() => {
@@ -508,17 +497,24 @@ export function WorkBehindObservation() {
     }
   }
 
-  const handleProceedToReview = async () => {
+  const handleGenerate = async () => {
+    setGenerating(true)
     try {
+      // Save everything first
       await api.put(`/api/work-behind/${observationId}`, {
         overall_comments: overallComments,
         ...scores,
         ...notes,
       })
+      // Generate AI summary
+      const res = await api.post(`/api/work-behind/${observationId}/generate`, {})
+      setSummary(res.summary || '')
+      setStep(4)
     } catch (e) {
-      console.error('Auto-save failed:', e)
+      toast.error(e.message)
+    } finally {
+      setGenerating(false)
     }
-    setStep(4)
   }
 
   const handleSend = async () => {
@@ -557,7 +553,8 @@ export function WorkBehindObservation() {
           images={images}
           onAddImage={(img) => setImages((prev) => [...prev, img])}
           onDeleteImage={(id) => setImages((prev) => prev.filter((i) => i.id !== id))}
-          onNext={handleProceedToReview}
+          onNext={handleGenerate}
+          generating={generating}
           onSaveDraft={handleSaveDraft}
           saving={saving}
         />
@@ -567,12 +564,10 @@ export function WorkBehindObservation() {
           rsm={selectedRSM}
           visitDate={details.date}
           location={details.location}
-          overallComments={overallComments}
           scores={scores}
-          notes={notes}
           images={images}
-          extraNotes={extraNotes}
-          onExtraNotesChange={setExtraNotes}
+          summary={summary}
+          onSummaryChange={setSummary}
           onSend={handleSend}
           sending={sending}
         />

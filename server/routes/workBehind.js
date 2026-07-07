@@ -2,6 +2,7 @@ const router = require('express').Router()
 const { requireAuth } = require('../middleware/auth')
 const { supabaseAdmin } = require('../lib/supabase')
 const { Resend } = require('resend')
+const Anthropic = require('@anthropic-ai/sdk')
 
 const SCORE_LABELS = { 1: 'Needs Dev', 2: 'Developing', 3: 'Competent', 4: 'Proficient', 5: 'Expert' }
 const scoreStr = (s) => s ? `${s}/5 — ${SCORE_LABELS[s]}` : 'Not scored'
@@ -65,6 +66,96 @@ router.put('/:id', requireAuth, async (req, res, next) => {
   }
 })
 
+// POST /api/work-behind/:id/generate — Claude AI summary
+router.post('/:id/generate', requireAuth, async (req, res, next) => {
+  try {
+    const { profile } = req
+    const { id } = req.params
+
+    let query = supabaseAdmin
+      .from('work_behind_observations')
+      .select('*, rsms(name)')
+      .eq('id', id)
+      .eq('org_id', profile.org_id)
+    if (profile.role !== 'admin') query = query.eq('fsm_id', profile.id)
+
+    const { data: obs, error: obsError } = await query.single()
+    if (obsError || !obs) return res.status(404).json({ error: 'Observation not found' })
+
+    const visitDate = new Date(obs.visit_date).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })
+    const rsmName = obs.rsms.name
+    const locationStr = obs.location ? ` at ${obs.location}` : ''
+
+    const scores = [obs.compliance_score, obs.store_hygiene_score, obs.aob_score].filter(Boolean)
+    const avg = scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : null
+
+    const userPrompt = `You are summarising a Work Behind store observation completed by a Field Sales Manager (FSM).
+
+This was a solo visit — the RSM was NOT present. The FSM observed the store independently.
+
+VISIT DETAILS
+RSM: ${rsmName}
+Date: ${visitDate}${locationStr}
+${avg ? `Overall average: ${avg}/5` : ''}
+
+OVERALL VISIT COMMENTS (FSM's own notes)
+${obs.overall_comments || 'None provided'}
+
+SECTION 1 — COMPLIANCE (Planogram / Off Locations / Tickets / Campaigns)
+Score: ${scoreStr(obs.compliance_score)}
+Notes: ${obs.compliance_notes || 'None'}
+
+SECTION 2 — STORE HYGIENE (POS Visuals / Product Placement / Stock Rotation)
+Score: ${scoreStr(obs.store_hygiene_score)}
+Notes: ${obs.store_hygiene_notes || 'None'}
+
+SECTION 3 — ANY OTHER BUSINESS
+Score: ${scoreStr(obs.aob_score)}
+Notes: ${obs.aob_notes || 'None'}
+
+Write a short, professional Work Behind observation email summary. Use the following guidelines:
+
+TONE & LANGUAGE
+• Written from the FSM's first-person perspective ("I observed", "When I visited I noticed", "I would suggest", "This needs to be addressed on your next visit")
+• Observational and direct — this is a compliance/inspection report, not a coaching summary
+• Warm but clear about what needs attention
+• Reference the RSM by name once at the opening
+
+FORMAT
+• 3–5 bullet points only (no long paragraphs)
+• Each bullet = one clear observation or action item
+• Lead bullets with the strongest observations first
+• End with one forward-looking action bullet: what the RSM should do on their next store visit
+
+RULES
+• Use the FSM's own notes as the primary source — do not fabricate detail
+• Do not include scores or numerical ratings in the output
+• Keep it brief — 5 bullets max, concise prose within each
+• No corporate jargon or filler phrases`
+
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-5-20250929',
+      max_tokens: 600,
+      system: `You are helping a Field Sales Manager write a clear, professional Work Behind store observation summary. Your output is the bullet point body of an email — no subject line, no greeting, no sign-off. Just the bullet points. Start directly with the first bullet.`,
+      messages: [{ role: 'user', content: userPrompt }],
+    })
+
+    const summary = message.content[0].text
+
+    // Save the AI summary
+    await supabaseAdmin.from('work_behind_observations').update({
+      edited_summary: summary,
+      status: 'generated',
+      updated_at: new Date().toISOString(),
+    }).eq('id', id)
+
+    res.json({ summary })
+  } catch (err) {
+    next(err)
+  }
+})
+
 // POST /api/work-behind/:id/images — save image record after client-side upload
 router.post('/:id/images', requireAuth, async (req, res, next) => {
   try {
@@ -114,7 +205,7 @@ router.delete('/:id/images/:imageId', requireAuth, async (req, res, next) => {
   }
 })
 
-// POST /api/work-behind/:id/send — email with scores + image attachments
+// POST /api/work-behind/:id/send — email with AI summary + image attachments
 router.post('/:id/send', requireAuth, async (req, res, next) => {
   try {
     const { profile } = req
@@ -131,9 +222,10 @@ router.post('/:id/send', requireAuth, async (req, res, next) => {
     const { data: obs, error: obsError } = await query.single()
     if (obsError || !obs) return res.status(404).json({ error: 'Observation not found' })
 
+    if (!edited_summary) return res.status(400).json({ error: 'No summary to send' })
+
     const visitDate = new Date(obs.visit_date).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })
     const rsmName = obs.rsms.name
-    const finalSummary = edited_summary || ''
     const images = obs.work_behind_images || []
 
     const scores = [obs.compliance_score, obs.store_hygiene_score, obs.aob_score].filter(Boolean)
@@ -142,7 +234,7 @@ router.post('/:id/send', requireAuth, async (req, res, next) => {
     const emailText = [
       `Hi ${profile.name},`,
       '',
-      `Here is your Work Behind observation from today's field visit.`,
+      `Here is your Work Behind observation summary from ${visitDate}.`,
       '',
       '───────────────────────────────',
       `RSM:      ${rsmName}`,
@@ -151,38 +243,21 @@ router.post('/:id/send', requireAuth, async (req, res, next) => {
       avg ? `Average:  ${avg}/5` : '',
       '───────────────────────────────',
       '',
-      'OVERALL VISIT COMMENTS',
-      obs.overall_comments || '(No overall comments recorded)',
+      'WORK BEHIND OBSERVATION',
+      '',
+      edited_summary,
       '',
       '───────────────────────────────',
-      '',
-      '1. COMPLIANCE',
-      'Planogram · Off Locations · Tickets · Campaigns',
-      `Score: ${scoreStr(obs.compliance_score)}`,
-      '',
-      obs.compliance_notes || '(No notes recorded)',
-      '',
-      '───────────────────────────────',
-      '',
-      '2. STORE HYGIENE',
-      'POS Visuals · Product Placement · Stock Rotation',
-      `Score: ${scoreStr(obs.store_hygiene_score)}`,
-      '',
-      obs.store_hygiene_notes || '(No notes recorded)',
-      '',
-      '───────────────────────────────',
-      '',
-      '3. ANY OTHER BUSINESS',
-      `Score: ${scoreStr(obs.aob_score)}`,
-      '',
-      obs.aob_notes || '(No notes recorded)',
-      finalSummary ? '\n───────────────────────────────\nADDITIONAL NOTES\n\n' + finalSummary : '',
+      `Scores`,
+      `• Compliance:    ${scoreStr(obs.compliance_score)}`,
+      `• Store Hygiene: ${scoreStr(obs.store_hygiene_score)}`,
+      `• Any Other Bus: ${scoreStr(obs.aob_score)}`,
       '',
       '───────────────────────────────',
       images.length ? `📷 ${images.length} photo${images.length > 1 ? 's' : ''} attached` : '',
       '',
       'GF In The Field — gfinthefield.com.au',
-    ].filter((line) => line !== undefined).join('\n')
+    ].filter((l) => l !== undefined).join('\n')
 
     // Download images and build Resend attachments
     const attachments = []
@@ -219,7 +294,7 @@ router.post('/:id/send', requireAuth, async (req, res, next) => {
     })
 
     await supabaseAdmin.from('work_behind_observations').update({
-      edited_summary: finalSummary || null,
+      edited_summary,
       status: 'sent',
       updated_at: new Date().toISOString(),
     }).eq('id', id)
