@@ -32,6 +32,7 @@ app.use('/api/observations', require('./routes/observations'))
 app.use('/api/areas', require('./routes/areas'))
 app.use('/api/admin', require('./routes/admin'))
 app.use('/api/login-tracking', require('./routes/login-tracking'))
+app.use('/api/work-behind', require('./routes/workBehind'))
 
 // Health check
 app.get('/health', (_req, res) => res.json({ status: 'ok' }))

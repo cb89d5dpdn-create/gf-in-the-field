@@ -12,6 +12,7 @@ import { ResetPassword } from './pages/ResetPassword'
 import { ChangePassword } from './pages/ChangePassword'
 import { AdminUsers } from './pages/AdminUsers'
 import { LoginStats } from './pages/LoginStats'
+import { WorkBehindObservation } from './pages/WorkBehindObservation'
 
 // Create a client with caching
 const queryClient = new QueryClient({
@@ -67,6 +68,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <NewObservation />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/work-behind/new"
+            element={
+              <ProtectedRoute>
+                <WorkBehindObservation />
               </ProtectedRoute>
             }
           />

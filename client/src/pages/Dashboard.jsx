@@ -144,9 +144,16 @@ export function Dashboard() {
 
           <button
             onClick={() => navigate('/observations/new')}
-            className="w-full bg-gf-teal text-white font-semibold py-4 rounded-xl mb-6 hover:bg-gf-dark active:bg-gf-dark transition-colors text-base"
+            className="w-full bg-gf-teal text-white font-semibold py-4 rounded-xl mb-3 hover:bg-gf-dark active:bg-gf-dark transition-colors text-base"
           >
             + Start New Observation
+          </button>
+
+          <button
+            onClick={() => navigate('/work-behind/new')}
+            className="w-full bg-white border-2 border-gf-teal text-gf-teal font-semibold py-4 rounded-xl mb-6 hover:bg-teal-50 active:bg-teal-50 transition-colors text-base"
+          >
+            + Start Work Behind Observation
           </button>
 
           <div className="space-y-3">
