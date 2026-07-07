@@ -466,7 +466,8 @@ router.post('/daily-summary', requireAuth, async (req, res, next) => {
     }
 
     // Load all observations with scores + RSM name
-    let query = supabaseAdmin
+    // Daily summary is org-scoped only — any FSM/admin in the org can summarise any observations
+    const { data: observations, error: obsError } = await supabaseAdmin
       .from('observations')
       .select(`
         id, visit_date, location, overall_comments,
@@ -479,13 +480,8 @@ router.post('/daily-summary', requireAuth, async (req, res, next) => {
       `)
       .in('id', observation_ids)
       .eq('org_id', profile.org_id)
-      .eq('status', 'sent')
+      .in('status', ['sent', 'generated'])
 
-    if (profile.role !== 'admin') {
-      query = query.eq('fsm_id', profile.id)
-    }
-
-    const { data: observations, error: obsError } = await query
     if (obsError) throw obsError
     if (!observations?.length) return res.status(404).json({ error: 'No valid observations found' })
 
