@@ -48,7 +48,7 @@ router.get('/:id/history', requireAuth, async (req, res, next) => {
     const { data: rsm, error: rsmError } = await rsmQuery.single()
     if (rsmError || !rsm) return res.status(404).json({ error: 'RSM not found' })
 
-    // Fetch observations with scores
+    // Fetch regular observations with scores
     const { data: observations, error: obsError } = await supabaseAdmin
       .from('observations')
       .select(`
@@ -65,15 +65,31 @@ router.get('/:id/history', requireAuth, async (req, res, next) => {
 
     if (obsError) throw obsError
 
-    // Compute avg score + flatten area labels for each observation
+    // Fetch Work Behind observations
+    const { data: workBehind, error: wbError } = await supabaseAdmin
+      .from('work_behind_observations')
+      .select(`
+        id, visit_date, location, status, edited_summary,
+        overall_comments, compliance_score, compliance_notes,
+        store_hygiene_score, store_hygiene_notes, aob_score, aob_notes,
+        work_behind_images(id, public_url),
+        fsm_profiles(name, state, role)
+      `)
+      .eq('org_id', profile.org_id)
+      .eq('rsm_id', id)
+      .order('visit_date', { ascending: false })
+
+    if (wbError) throw wbError
+
+    // Enrich regular observations
     const enriched = observations.map((obs) => {
       const scores = obs.observation_scores || []
       const avg_score = scores.length
         ? scores.reduce((sum, s) => sum + s.score, 0) / scores.length
         : null
-
       return {
         ...obs,
+        kind: 'observation',
         avg_score,
         scores: scores.map((s) => ({
           area_id: s.area_id,
@@ -85,7 +101,21 @@ router.get('/:id/history', requireAuth, async (req, res, next) => {
       }
     })
 
-    res.json({ rsm, observations: enriched })
+    // Enrich Work Behind observations
+    const enrichedWB = (workBehind || []).map((wb) => {
+      const sectionScores = [wb.compliance_score, wb.store_hygiene_score, wb.aob_score].filter(Boolean)
+      const avg_score = sectionScores.length
+        ? sectionScores.reduce((a, b) => a + b, 0) / sectionScores.length
+        : null
+      return { ...wb, kind: 'work_behind', avg_score }
+    })
+
+    // Merge + sort by visit_date desc
+    const all = [...enriched, ...enrichedWB].sort(
+      (a, b) => new Date(b.visit_date) - new Date(a.visit_date)
+    )
+
+    res.json({ rsm, observations: all })
   } catch (err) {
     next(err)
   }

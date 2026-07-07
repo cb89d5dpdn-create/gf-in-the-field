@@ -137,6 +137,108 @@ function ObservationDetail({ obs, onSent }) {
   )
 }
 
+// ── Work Behind Detail View ────────────────────────────────────────────────────
+function WorkBehindDetail({ obs }) {
+  const SCORE_LABELS_WB = { 1: 'Needs Dev', 2: 'Developing', 3: 'Competent', 4: 'Proficient', 5: 'Expert' }
+
+  const sections = [
+    { label: 'Compliance', sub: 'Planogram · Off Locations · Tickets · Campaigns', score: obs.compliance_score, notes: obs.compliance_notes },
+    { label: 'Store Hygiene', sub: 'POS Visuals · Product Placement · Stock Rotation', score: obs.store_hygiene_score, notes: obs.store_hygiene_notes },
+    { label: 'TBC Observation', sub: null, score: obs.aob_score, notes: obs.aob_notes },
+  ]
+
+  return (
+    <div className="space-y-4 pb-8">
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-bold uppercase tracking-wider text-gf-teal bg-teal-50 px-2 py-1 rounded-full">Work Behind</span>
+        {obs.fsm_profiles && (
+          <p className="text-xs text-gray-500">by {obs.fsm_profiles.name}</p>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-gray-500">
+            {new Date(obs.visit_date).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })}
+          </p>
+          {obs.location && <p className="text-sm text-gray-600">{obs.location}</p>}
+        </div>
+        {obs.avg_score != null && (
+          <div className="text-right">
+            <span className="text-2xl font-bold text-gray-900">{Number(obs.avg_score).toFixed(1)}</span>
+            <span className="text-sm text-gray-400">/5</span>
+          </div>
+        )}
+      </div>
+
+      {/* Score table */}
+      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <table className="w-full text-sm">
+          <tbody>
+            {sections.map((s) => (
+              <tr key={s.label} className="border-b border-gray-100 last:border-0">
+                <td className="px-4 py-3 text-gray-700">{s.label}</td>
+                <td className="px-4 py-3 text-right font-semibold text-gray-900">
+                  {s.score
+                    ? <>{s.score}/5 <span className="ml-1 text-xs font-normal text-gray-400">{SCORE_LABELS_WB[s.score]}</span></>
+                    : <span className="text-gray-400 font-normal">—</span>
+                  }
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Overall comments */}
+      {obs.overall_comments && (
+        <div>
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Overall Visit Comments</p>
+          <div className="bg-white border border-gray-300 rounded-lg px-4 py-3 text-sm text-gray-800 whitespace-pre-wrap">
+            {obs.overall_comments}
+          </div>
+        </div>
+      )}
+
+      {/* Section notes */}
+      {sections.map((s) => s.notes && (
+        <div key={s.label}>
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">{s.label}</p>
+          <div className="bg-white border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-800 whitespace-pre-wrap">
+            {s.notes}
+          </div>
+        </div>
+      ))}
+
+      {/* AI Summary */}
+      {obs.edited_summary && (
+        <div>
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Observation Summary</p>
+          <div className="bg-white border border-gray-200 rounded-xl px-4 py-4 text-sm text-gray-700 leading-relaxed whitespace-pre-line">
+            {obs.edited_summary}
+          </div>
+        </div>
+      )}
+
+      {/* Photos */}
+      {obs.work_behind_images?.length > 0 && (
+        <div>
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+            📷 {obs.work_behind_images.length} Photo{obs.work_behind_images.length > 1 ? 's' : ''}
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            {obs.work_behind_images.map((img) => (
+              <div key={img.id} className="aspect-square rounded-lg overflow-hidden bg-gray-100">
+                <img src={img.public_url} alt="" className="w-full h-full object-cover" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function SwipeableObservation({ obs, isDraft, onDelete, onClick }) {
   const [swipeOffset, setSwipeOffset] = useState(0)
   const [isSwiping, setIsSwiping] = useState(false)
@@ -242,10 +344,13 @@ function SwipeableObservation({ obs, isDraft, onDelete, onClick }) {
             )}
           </div>
           <div className="text-right flex flex-col items-end gap-1">
-            {isDraft && (
+            {obs.kind === 'work_behind' && (
+              <span className="text-xs bg-teal-50 text-gf-teal px-2 py-1 rounded-full font-bold border border-gf-teal">WB</span>
+            )}
+            {isDraft && obs.kind !== 'work_behind' && (
               <span className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded-full font-medium">📋 Draft</span>
             )}
-            {obs.status === 'generated' && (
+            {obs.status === 'generated' && obs.kind !== 'work_behind' && (
               <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full font-medium">Ready to send</span>
             )}
             {!isDraft && avg != null && (
@@ -447,7 +552,10 @@ export function RSMHistory() {
           >
             &larr; Back to history
           </button>
-          <ObservationDetail obs={selectedObs} onSent={handleSent} />
+          {selectedObs.kind === 'work_behind'
+            ? <WorkBehindDetail obs={selectedObs} />
+            : <ObservationDetail obs={selectedObs} onSent={handleSent} />
+          }
         </>
       ) : dailySummary ? (
         <DailySummaryReview
@@ -514,7 +622,9 @@ export function RSMHistory() {
                   isDraft={isDraft}
                   onDelete={handleDelete}
                   onClick={() => {
-                    if (isDraft) {
+                    if (obs.kind === 'work_behind') {
+                      setSelectedObs(obs)
+                    } else if (isDraft) {
                       navigate(`/observations/${obs.id}/continue`)
                     } else {
                       setSelectedObs(obs)
