@@ -109,7 +109,7 @@ SECTION 2 — STORE HYGIENE (POS Visuals / Product Placement / Stock Rotation)
 Score: ${scoreStr(obs.store_hygiene_score)}
 Notes: ${obs.store_hygiene_notes || 'None'}
 
-SECTION 3 — ANY OTHER BUSINESS
+SECTION 3 — TBC OBSERVATION
 Score: ${scoreStr(obs.aob_score)}
 Notes: ${obs.aob_notes || 'None'}
 
@@ -251,7 +251,7 @@ router.post('/:id/send', requireAuth, async (req, res, next) => {
       `Scores`,
       `• Compliance:    ${scoreStr(obs.compliance_score)}`,
       `• Store Hygiene: ${scoreStr(obs.store_hygiene_score)}`,
-      `• Any Other Bus: ${scoreStr(obs.aob_score)}`,
+      `• TBC Observation: ${scoreStr(obs.aob_score)}`,
       '',
       '───────────────────────────────',
       images.length ? `📷 ${images.length} photo${images.length > 1 ? 's' : ''} attached` : '',

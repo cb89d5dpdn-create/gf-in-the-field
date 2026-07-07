@@ -46,8 +46,8 @@ const WB_SECTIONS = [
   },
   {
     key: 'aob',
-    label: 'Any Other Business',
-    description: 'Captures any additional actions, follow-ups or escalations',
+    label: 'TBC Observation',
+    description: '',
     subText: null,
     scoreKey: 'aob_score',
     notesKey: 'aob_notes',
@@ -234,7 +234,9 @@ function StepNotes({
         <div key={section.key} className="space-y-2">
           <div>
             <p className="font-semibold text-gray-900">{section.label}</p>
-            <p className="text-sm text-gray-500 mt-0.5">{section.description}</p>
+            {section.description && (
+              <p className="text-sm text-gray-500 mt-0.5">{section.description}</p>
+            )}
             {section.subText && (
               <p className="text-xs text-gray-400 mt-0.5">{section.subText}</p>
             )}
