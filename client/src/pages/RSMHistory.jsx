@@ -261,11 +261,77 @@ function SwipeableObservation({ obs, isDraft, onDelete, onClick }) {
   )
 }
 
+// ── Daily Summary Review Screen ─────────────────────────────────────────────
+function DailySummaryReview({ summary, meta, onSummaryChange, onSend, onBack, sending }) {
+  return (
+    <div className="space-y-6 pb-28">
+      <button onClick={onBack} className="text-sm text-gf-teal hover:underline min-h-0">
+        &larr; Back to selection
+      </button>
+
+      <h2 className="text-lg font-bold text-gray-900">Daily Summary</h2>
+
+      {/* Meta card */}
+      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden divide-y divide-gray-100">
+        <div className="px-4 py-3">
+          <p className="text-xs text-gray-500">RSM</p>
+          <p className="font-semibold text-gray-900">{meta.rsmName}</p>
+        </div>
+        <div className="px-4 py-3">
+          <p className="text-xs text-gray-500">Date</p>
+          <p className="font-semibold text-gray-900">{meta.visitDates}</p>
+        </div>
+        <div className="px-4 py-3">
+          <p className="text-xs text-gray-500">Stores visited</p>
+          <p className="font-semibold text-gray-900">{meta.storeCount} &nbsp;·&nbsp; avg {meta.overallAvg}/5</p>
+        </div>
+        <div className="px-4 py-3">
+          <p className="text-xs text-gray-500">Locations</p>
+          <p className="text-sm text-gray-700">{meta.stores?.join(' · ')}</p>
+        </div>
+      </div>
+
+      {/* Editable summary */}
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-2">
+          Summary <span className="font-normal text-gray-400">(edit before sending)</span>
+        </label>
+        <textarea
+          value={summary}
+          onChange={(e) => onSummaryChange(e.target.value)}
+          rows={14}
+          className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gf-teal resize-none"
+        />
+      </div>
+
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-4">
+        <div className="max-w-2xl mx-auto">
+          <button
+            onClick={onSend}
+            disabled={sending || !summary.trim()}
+            className="w-full bg-gf-teal text-white font-semibold py-4 rounded-xl hover:bg-gf-dark disabled:opacity-50 transition-colors text-base"
+          >
+            {sending ? 'Sending...' : 'Send to My Email'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function RSMHistory() {
   const { id } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [selectedObs, setSelectedObs] = useState(null)
+
+  // Daily Summary state
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState(new Set())
+  const [generating, setGenerating] = useState(false)
+  const [dailySummary, setDailySummary] = useState(null)  // { summary, meta }
+  const [summaryText, setSummaryText] = useState('')
+  const [sendingDaily, setSendingDaily] = useState(false)
 
   const { data, isLoading: loading, error } = useQuery({
     queryKey: ['rsm-history', id],
@@ -279,6 +345,55 @@ export function RSMHistory() {
   const handleSent = () => {
     setSelectedObs(null)
     refreshHistory()
+  }
+
+  const toggleSelectMode = () => {
+    setSelectMode((v) => !v)
+    setSelectedIds(new Set())
+  }
+
+  const toggleId = (obsId) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(obsId)) next.delete(obsId)
+      else next.add(obsId)
+      return next
+    })
+  }
+
+  const handleGenerateDaily = async () => {
+    if (selectedIds.size < 1) return
+    setGenerating(true)
+    try {
+      const res = await api.post('/api/observations/daily-summary', {
+        observation_ids: Array.from(selectedIds),
+      })
+      setDailySummary(res)
+      setSummaryText(res.summary || '')
+    } catch (e) {
+      toast.error(e.message)
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  const handleSendDaily = async () => {
+    setSendingDaily(true)
+    try {
+      await api.post('/api/observations/daily-summary/send', {
+        summary: summaryText,
+        meta: dailySummary.meta,
+      })
+      toast.success('Daily Summary sent to your email!')
+      setDailySummary(null)
+      setSummaryText('')
+      setSelectMode(false)
+      setSelectedIds(new Set())
+    } catch (e) {
+      toast.error(e.message)
+    } finally {
+      setSendingDaily(false)
+    }
   }
 
   const handleDelete = async (obsId) => {
@@ -295,14 +410,29 @@ export function RSMHistory() {
     <Layout>
       <div className="flex items-center gap-3 mb-6">
         <button
-          onClick={() => navigate('/')}
+          onClick={() => {
+            if (selectMode) { setSelectMode(false); setSelectedIds(new Set()) }
+            else navigate('/')
+          }}
           className="text-gray-500 hover:text-gray-800 min-h-0"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-        <h1 className="text-xl font-bold text-gray-900">{data?.rsm?.name || 'RSM History'}</h1>
+        <h1 className="text-xl font-bold text-gray-900 flex-1">{data?.rsm?.name || 'RSM History'}</h1>
+        {!selectedObs && !dailySummary && data?.observations?.some((o) => o.status === 'sent') && (
+          <button
+            onClick={toggleSelectMode}
+            className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
+              selectMode
+                ? 'bg-gf-teal text-white border-gf-teal'
+                : 'text-gf-teal border-gf-teal hover:bg-teal-50'
+            }`}
+          >
+            {selectMode ? 'Cancel' : '📊 Daily Summary'}
+          </button>
+        )}
       </div>
 
       {loading ? (
@@ -319,6 +449,15 @@ export function RSMHistory() {
           </button>
           <ObservationDetail obs={selectedObs} onSent={handleSent} />
         </>
+      ) : dailySummary ? (
+        <DailySummaryReview
+          summary={summaryText}
+          meta={dailySummary.meta}
+          onSummaryChange={setSummaryText}
+          onSend={handleSendDaily}
+          onBack={() => setDailySummary(null)}
+          sending={sendingDaily}
+        />
       ) : (
         <div className="space-y-3">
           {data?.observations?.length === 0 ? (
@@ -326,6 +465,48 @@ export function RSMHistory() {
           ) : (
             data?.observations?.map((obs) => {
               const isDraft = obs.status === 'draft'
+              const isSent = obs.status === 'sent'
+              const isSelected = selectedIds.has(obs.id)
+
+              if (selectMode) {
+                return (
+                  <button
+                    key={obs.id}
+                    onClick={() => isSent && toggleId(obs.id)}
+                    disabled={!isSent}
+                    className={`w-full border rounded-xl px-4 py-4 text-left flex items-center gap-3 transition-colors ${
+                      !isSent
+                        ? 'bg-gray-50 border-gray-200 opacity-40 cursor-not-allowed'
+                        : isSelected
+                        ? 'bg-teal-50 border-gf-teal'
+                        : 'bg-white border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                      isSelected ? 'bg-gf-teal border-gf-teal' : 'border-gray-300'
+                    }`}>
+                      {isSelected && (
+                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-900">
+                        {new Date(obs.visit_date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </p>
+                      <p className="text-sm text-gray-500">{obs.location || 'Location not recorded'}</p>
+                    </div>
+                    {obs.avg_score != null && (
+                      <div className="text-right flex-shrink-0">
+                        <span className="font-bold text-gray-900">{Number(obs.avg_score).toFixed(1)}</span>
+                        <span className="text-xs text-gray-400">/5</span>
+                      </div>
+                    )}
+                  </button>
+                )
+              }
+
               return (
                 <SwipeableObservation
                   key={obs.id}
@@ -342,6 +523,32 @@ export function RSMHistory() {
                 />
               )
             })
+          )}
+
+          {/* Sticky Generate button in select mode */}
+          {selectMode && (
+            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-4">
+              <div className="max-w-2xl mx-auto">
+                <button
+                  onClick={handleGenerateDaily}
+                  disabled={selectedIds.size < 1 || generating}
+                  className="w-full bg-gf-teal text-white font-semibold py-4 rounded-xl hover:bg-gf-dark disabled:opacity-50 transition-colors text-base"
+                >
+                  {generating ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                      </svg>
+                      Generating...
+                    </span>
+                  ) : selectedIds.size < 1
+                    ? 'Select visits to summarise'
+                    : `Generate Summary for ${selectedIds.size} visit${selectedIds.size > 1 ? 's' : ''}`
+                  }
+                </button>
+              </div>
+            </div>
           )}
         </div>
       )}

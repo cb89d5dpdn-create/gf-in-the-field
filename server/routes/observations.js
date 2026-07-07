@@ -455,4 +455,188 @@ GF In The Field — gfinthefield.com.au`
   }
 })
 
+// POST /api/observations/daily-summary — synthesise multiple observations into one summary
+router.post('/daily-summary', requireAuth, async (req, res, next) => {
+  try {
+    const { profile } = req
+    const { observation_ids } = req.body
+
+    if (!Array.isArray(observation_ids) || observation_ids.length < 1) {
+      return res.status(400).json({ error: 'At least 1 observation_id required' })
+    }
+
+    // Load all observations with scores + RSM name
+    let query = supabaseAdmin
+      .from('observations')
+      .select(`
+        id, visit_date, location, overall_comments,
+        rsms(name),
+        fsm_profiles(name),
+        observation_scores(
+          score, comments,
+          observation_areas(label, group_name, order_index)
+        )
+      `)
+      .in('id', observation_ids)
+      .eq('org_id', profile.org_id)
+      .eq('status', 'sent')
+
+    if (profile.role !== 'admin') {
+      query = query.eq('fsm_id', profile.id)
+    }
+
+    const { data: observations, error: obsError } = await query
+    if (obsError) throw obsError
+    if (!observations?.length) return res.status(404).json({ error: 'No valid observations found' })
+
+    const rsmName = observations[0].rsms.name
+    const fsmName = observations[0].fsm_profiles.name
+
+    // Sort each observation's scores by order_index
+    const obsData = observations.map((obs) => {
+      const scores = (obs.observation_scores || [])
+        .slice()
+        .sort((a, b) => a.observation_areas.order_index - b.observation_areas.order_index)
+
+      const avg = scores.length
+        ? (scores.reduce((sum, s) => sum + s.score, 0) / scores.length).toFixed(1)
+        : null
+
+      const visitDate = new Date(obs.visit_date).toLocaleDateString('en-AU', {
+        day: 'numeric', month: 'short',
+      })
+
+      return { obs, scores, avg, visitDate }
+    })
+
+    // Build visit blocks for Claude
+    const visitBlocks = obsData.map(({ obs, scores, avg, visitDate }, i) => {
+      const scoreLines = scores.map((s) =>
+        `  ${s.observation_areas.label}: ${s.score}/5 (${SCORE_LABELS[s.score]})${s.comments ? ' — "' + s.comments + '"' : ''}`
+      ).join('\n')
+
+      return [
+        `VISIT ${i + 1}: ${visitDate}${obs.location ? ' — ' + obs.location : ''} | Overall: ${avg}/5`,
+        scoreLines,
+        obs.overall_comments ? `  FSM Notes: "${obs.overall_comments}"` : '',
+      ].filter(Boolean).join('\n')
+    }).join('\n\n')
+
+    // Compute cross-visit averages per area
+    const areaMap = {}
+    obsData.forEach(({ scores }) => {
+      scores.forEach((s) => {
+        const label = s.observation_areas.label
+        if (!areaMap[label]) areaMap[label] = []
+        areaMap[label].push(s.score)
+      })
+    })
+
+    const areaAvgs = Object.entries(areaMap)
+      .map(([label, vals]) => ({
+        label,
+        avg: vals.reduce((a, b) => a + b, 0) / vals.length,
+      }))
+      .sort((a, b) => a.avg - b.avg)
+
+    const weakest = areaAvgs.slice(0, 2).map((a) => `${a.label} (${a.avg.toFixed(1)}/5)`).join(', ')
+    const strongest = areaAvgs.slice(-2).reverse().map((a) => `${a.label} (${a.avg.toFixed(1)}/5)`).join(', ')
+
+    const visitDates = [...new Set(obsData.map((o) => o.visitDate))].join(', ')
+
+    const userPrompt = `You are writing a Daily Summary for a Field Sales Manager.
+
+FSM: ${fsmName}
+RSM: ${rsmName}
+Date(s): ${visitDates}
+Stores visited: ${obsData.length}
+
+Cross-store performance:
+• Strongest areas: ${strongest}
+• Areas needing attention: ${weakest}
+
+INDIVIDUAL VISIT DATA:
+${visitBlocks}
+
+Write a concise Daily Summary email body. Structure it as:
+
+1. Opening line: one sentence summarising the day (FSM + RSM + number of stores + date)
+2. STRENGTHS section (2-3 bullets): what was consistently good across stores — reference specific stores/locations where relevant
+3. FOCUS AREAS section (2-3 bullets): what needs attention — patterns seen across multiple stores, specific gaps
+4. COACHING FOCUS: one forward-looking bullet — the single most important thing for RSM to action before next visit
+
+TONE: Professional coaching voice. Use "across the stores visited", "a consistent theme was", "I observed", "this was evident at [location]". Not too long — this is a summary the FSM will send to themselves and review with the RSM.
+
+FORMAT: Headers in CAPS, bullets with •. No intro/outro fluff. Start directly with the opening line.`
+
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-5-20250929',
+      max_tokens: 800,
+      system: `You are an expert FMCG field sales coach writing a multi-store daily summary for a Field Sales Manager. Your output is the email body only — no subject line, no greeting, no sign-off.`,
+      messages: [{ role: 'user', content: userPrompt }],
+    })
+
+    const summary = message.content[0].text
+
+    // Build metadata to return for the review screen
+    const meta = {
+      rsmName,
+      fsmName,
+      visitDates,
+      storeCount: obsData.length,
+      stores: obsData.map((o) => o.obs.location || 'Location not recorded'),
+      overallAvg: (obsData.reduce((sum, o) => sum + parseFloat(o.avg || 0), 0) / obsData.length).toFixed(1),
+    }
+
+    res.json({ summary, meta })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// POST /api/observations/daily-summary/send — send the daily summary email
+router.post('/daily-summary/send', requireAuth, async (req, res, next) => {
+  try {
+    const { profile } = req
+    const { summary, meta } = req.body
+
+    if (!summary?.trim()) return res.status(400).json({ error: 'No summary to send' })
+
+    const emailText = [
+      `Hi ${profile.name},`,
+      '',
+      `Here is your Daily Summary from ${meta.visitDates}.`,
+      '',
+      '───────────────────────────────',
+      `RSM:      ${meta.rsmName}`,
+      `Date:     ${meta.visitDates}`,
+      `Stores:   ${meta.storeCount} visited`,
+      meta.stores?.length ? `          ${meta.stores.join(' · ')}` : '',
+      `Avg:      ${meta.overallAvg}/5`,
+      '───────────────────────────────',
+      '',
+      summary,
+      '',
+      '───────────────────────────────',
+      'GF In The Field — gfinthefield.com.au',
+    ].filter((l) => l !== undefined).join('\n')
+
+    const { data: { user } } = await supabaseAdmin.auth.admin.getUserById(req.user.id)
+    const fsmEmail = user.email
+
+    const resend = new Resend(process.env.RESEND_API_KEY)
+    await resend.emails.send({
+      from: process.env.FROM_EMAIL || 'coach@gfinthefield.com.au',
+      to: fsmEmail,
+      subject: `GF In The Field | Daily Summary — ${meta.rsmName} — ${meta.visitDates}`,
+      text: emailText,
+    })
+
+    res.json({ success: true })
+  } catch (err) {
+    next(err)
+  }
+})
+
 module.exports = router
