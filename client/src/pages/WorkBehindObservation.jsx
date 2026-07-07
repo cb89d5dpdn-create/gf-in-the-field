@@ -522,7 +522,7 @@ export function WorkBehindObservation() {
   const handleSend = async () => {
     setSending(true)
     try {
-      await api.post(`/api/work-behind/${observationId}/send`, { edited_summary: extraNotes })
+      await api.post(`/api/work-behind/${observationId}/send`, { edited_summary: summary })
       toast.success('Work Behind observation sent to your email!')
       navigate('/')
     } catch (e) {
