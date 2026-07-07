@@ -85,13 +85,22 @@ export function Layout({ children }) {
                 </Link>
 
                 {isBen && (
-                  <Link
-                    to="/admin/login-stats"
-                    onClick={() => setMenuOpen(false)}
-                    className="block px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                  >
-                    📊 Login Activity
-                  </Link>
+                  <>
+                    <Link
+                      to="/admin/login-stats"
+                      onClick={() => setMenuOpen(false)}
+                      className="block px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                    >
+                      📊 Login Activity
+                    </Link>
+                    <Link
+                      to="/admin/usage"
+                      onClick={() => setMenuOpen(false)}
+                      className="block px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                    >
+                      💰 Usage &amp; Costs
+                    </Link>
+                  </>
                 )}
 
                 <button

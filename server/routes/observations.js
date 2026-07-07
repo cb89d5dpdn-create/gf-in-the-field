@@ -4,6 +4,7 @@ const { supabaseAdmin } = require('../lib/supabase')
 const Anthropic = require('@anthropic-ai/sdk')
 const { Resend } = require('resend')
 const { generateVoiceProfile, getVoiceProfile } = require('../services/voiceProfileService')
+const { logUsage } = require('../lib/logUsage')
 
 const SCORE_LABELS = {
   1: 'Needs Dev',
@@ -158,6 +159,10 @@ FORMAT: Headers in CAPS, bullets with •. No intro/outro fluff. Start directly 
     })
 
     const summary = message.content[0].text
+
+    // Log usage (fire-and-forget)
+    logUsage({ orgId: profile.org_id, fsmId: profile.id, type: 'daily_summary', model: 'claude-sonnet-4-5-20250929', usage: message.usage })
+
     const meta = {
       rsmName, fsmName, visitDates,
       storeCount: obsData.length,
@@ -420,6 +425,9 @@ CRITICAL: The summary must sound like this specific FSM wrote it and had it ligh
     })
 
     const summary = message.content[0].text
+
+    // Log usage (fire-and-forget)
+    logUsage({ orgId: profile.org_id, fsmId: profile.id, type: 'observation', model: 'claude-sonnet-4-5-20250929', usage: message.usage })
 
     // Save AI summary + update status
     await supabaseAdmin

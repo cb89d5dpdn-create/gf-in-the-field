@@ -3,6 +3,7 @@ const { requireAuth } = require('../middleware/auth')
 const { supabaseAdmin } = require('../lib/supabase')
 const { Resend } = require('resend')
 const Anthropic = require('@anthropic-ai/sdk')
+const { logUsage } = require('../lib/logUsage')
 
 const SCORE_LABELS = { 1: 'Needs Dev', 2: 'Developing', 3: 'Competent', 4: 'Proficient', 5: 'Expert' }
 const scoreStr = (s) => s ? `${s}/5 — ${SCORE_LABELS[s]}` : 'Not scored'
@@ -142,6 +143,9 @@ RULES
     })
 
     const summary = message.content[0].text
+
+    // Log usage (fire-and-forget)
+    logUsage({ orgId: profile.org_id, fsmId: profile.id, type: 'work_behind', model: 'claude-sonnet-4-5-20250929', usage: message.usage })
 
     // Save the AI summary
     await supabaseAdmin.from('work_behind_observations').update({

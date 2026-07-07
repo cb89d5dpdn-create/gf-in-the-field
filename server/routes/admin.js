@@ -588,4 +588,99 @@ router.get('/voice-profiles', async (req, res, next) => {
   }
 })
 
+// GET /api/admin/usage — AI cost tracking (Ben only via client, but admin-gated server-side)
+router.get('/usage', async (req, res, next) => {
+  try {
+    const { profile } = req
+
+    // All-time totals
+    const { data: allTime } = await supabaseAdmin
+      .from('ai_usage_log')
+      .select('type, input_tokens, output_tokens, estimated_cost_usd')
+      .eq('org_id', profile.org_id)
+
+    // This week (Mon-Sun)
+    const now = new Date()
+    const dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1 // Mon=0
+    const weekStart = new Date(now)
+    weekStart.setDate(now.getDate() - dayOfWeek)
+    weekStart.setHours(0, 0, 0, 0)
+
+    const { data: thisWeek } = await supabaseAdmin
+      .from('ai_usage_log')
+      .select('type, input_tokens, output_tokens, estimated_cost_usd, fsm_id, created_at')
+      .eq('org_id', profile.org_id)
+      .gte('created_at', weekStart.toISOString())
+
+    // Last 4 weeks by week
+    const fourWeeksAgo = new Date(weekStart)
+    fourWeeksAgo.setDate(weekStart.getDate() - 21)
+
+    const { data: recent } = await supabaseAdmin
+      .from('ai_usage_log')
+      .select('estimated_cost_usd, created_at')
+      .eq('org_id', profile.org_id)
+      .gte('created_at', fourWeeksAgo.toISOString())
+      .order('created_at')
+
+    // Per-FSM breakdown (all-time)
+    const { data: byFsm } = await supabaseAdmin
+      .from('ai_usage_log')
+      .select('fsm_id, estimated_cost_usd, fsm_profiles(name)')
+      .eq('org_id', profile.org_id)
+
+    // Aggregate helpers
+    const sum = (arr, key) => (arr || []).reduce((t, r) => t + Number(r[key] || 0), 0)
+    const USD_TO_AUD = 1.55
+
+    const allTimeCostUsd = sum(allTime, 'estimated_cost_usd')
+    const thisWeekCostUsd = sum(thisWeek, 'estimated_cost_usd')
+
+    // By type (all-time)
+    const byType = { observation: 0, work_behind: 0, daily_summary: 0 }
+    ;(allTime || []).forEach((r) => { byType[r.type] = (byType[r.type] || 0) + Number(r.estimated_cost_usd) })
+
+    // By FSM (all-time)
+    const fsmMap = {}
+    ;(byFsm || []).forEach((r) => {
+      const name = r.fsm_profiles?.name || 'Unknown'
+      fsmMap[name] = (fsmMap[name] || 0) + Number(r.estimated_cost_usd)
+    })
+    const fsmBreakdown = Object.entries(fsmMap)
+      .map(([name, costUsd]) => ({ name, costUsd, costAud: costUsd * USD_TO_AUD }))
+      .sort((a, b) => b.costUsd - a.costUsd)
+
+    // Weekly trend (last 4 weeks)
+    const weeklyTrend = [0, 1, 2, 3].map((weeksAgo) => {
+      const wStart = new Date(weekStart)
+      wStart.setDate(weekStart.getDate() - weeksAgo * 7)
+      const wEnd = new Date(wStart)
+      wEnd.setDate(wStart.getDate() + 7)
+      const label = weeksAgo === 0 ? 'This week' : weeksAgo === 1 ? 'Last week' : `${weeksAgo}w ago`
+      const costUsd = (recent || [])
+        .filter((r) => new Date(r.created_at) >= wStart && new Date(r.created_at) < wEnd)
+        .reduce((t, r) => t + Number(r.estimated_cost_usd), 0)
+      return { label, costUsd, costAud: costUsd * USD_TO_AUD }
+    }).reverse()
+
+    // Total calls
+    const totalCalls = (allTime || []).length
+    const thisWeekCalls = (thisWeek || []).length
+
+    res.json({
+      allTime: { costUsd: allTimeCostUsd, costAud: allTimeCostUsd * USD_TO_AUD, calls: totalCalls },
+      thisWeek: { costUsd: thisWeekCostUsd, costAud: thisWeekCostUsd * USD_TO_AUD, calls: thisWeekCalls },
+      byType: {
+        observation: { costUsd: byType.observation, costAud: byType.observation * USD_TO_AUD },
+        work_behind: { costUsd: byType.work_behind, costAud: byType.work_behind * USD_TO_AUD },
+        daily_summary: { costUsd: byType.daily_summary, costAud: byType.daily_summary * USD_TO_AUD },
+      },
+      byFsm: fsmBreakdown,
+      weeklyTrend,
+    })
+  } catch (err) {
+    next(err)
+  }
+})
+
 module.exports = router

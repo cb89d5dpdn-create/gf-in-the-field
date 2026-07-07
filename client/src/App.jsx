@@ -13,6 +13,7 @@ import { ChangePassword } from './pages/ChangePassword'
 import { AdminUsers } from './pages/AdminUsers'
 import { LoginStats } from './pages/LoginStats'
 import { WorkBehindObservation } from './pages/WorkBehindObservation'
+import { AdminUsage } from './pages/AdminUsage'
 
 // Create a client with caching
 const queryClient = new QueryClient({
@@ -108,6 +109,14 @@ function App() {
             element={
               <ProtectedRoute requireAdmin>
                 <LoginStats />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/usage"
+            element={
+              <ProtectedRoute requireAdmin>
+                <AdminUsage />
               </ProtectedRoute>
             }
           />
