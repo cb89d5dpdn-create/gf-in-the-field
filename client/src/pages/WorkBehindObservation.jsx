@@ -44,14 +44,6 @@ const WB_SECTIONS = [
     scoreKey: 'store_hygiene_score',
     notesKey: 'store_hygiene_notes',
   },
-  {
-    key: 'aob',
-    label: 'TBC Observation',
-    description: '',
-    subText: null,
-    scoreKey: 'aob_score',
-    notesKey: 'aob_notes',
-  },
 ]
 
 // ── Step 1: Select RSM ───────────────────────────────────────────────────────
