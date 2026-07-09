@@ -329,11 +329,20 @@ router.post('/:id/generate', requireAuth, async (req, res, next) => {
 
     if (obsError || !obs) return res.status(404).json({ error: 'Observation not found' })
 
+    // Fetch active area count dynamically so this stays correct if areas change
+    const { data: activeAreas } = await supabaseAdmin
+      .from('observation_areas')
+      .select('id', { count: 'exact' })
+      .eq('org_id', profile.org_id)
+      .eq('is_active', true)
+    const activeAreaCount = activeAreas?.length ?? 6
+
     const scores = obs.observation_scores
+      .filter((s) => s.observation_areas) // only scored areas that exist
       .slice()
       .sort((a, b) => a.observation_areas.order_index - b.observation_areas.order_index)
 
-    if (scores.length < 9) return res.status(400).json({ error: 'All 9 areas must be scored before generating' })
+    if (scores.length < activeAreaCount) return res.status(400).json({ error: `All ${activeAreaCount} areas must be scored before generating` })
 
     // Build prompt
     const rsmName = obs.rsms.name
