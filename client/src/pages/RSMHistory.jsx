@@ -510,6 +510,7 @@ export function RSMHistory() {
       await api.delete(endpoint)
       toast.success('Observation deleted')
       refreshHistory()
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     } catch (e) {
       toast.error(e.message)
     }
