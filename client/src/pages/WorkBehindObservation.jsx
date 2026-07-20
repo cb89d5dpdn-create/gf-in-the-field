@@ -254,7 +254,7 @@ function StepNotes({
           <VoiceInput
             value={notes[section.notesKey] || ''}
             onChange={(text) => onNote(section.notesKey, text)}
-            placeholder="Key observations / examples... (tap to speak or type)"
+            placeholder="Key observations"
             rows={2}
             className="border-gray-200"
           />

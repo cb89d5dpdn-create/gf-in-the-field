@@ -178,7 +178,7 @@ function StepScoring({ areas, scores, comments, overallComments, onChange, onCom
                 <VoiceInput
                   value={comments[area.id] || ''}
                   onChange={(text) => onComment(area.id, text)}
-                  placeholder="Key observations / examples... (tap to speak or type)"
+                  placeholder="Key observations"
                   rows={2}
                   className="border-gray-200"
                 />
