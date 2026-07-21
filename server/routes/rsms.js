@@ -27,14 +27,14 @@ router.get('/', requireAuth, async (req, res, next) => {
   }
 })
 
-// GET /api/rsms/by-state/:state
+// GET /api/rsms/by-state?state=SA%2FNT
 // Returns all RSMs in a given state (same org), excluding the current FSM's own RSMs.
 // Enriched with ONLY the visiting FSM's own observation stats.
 // Used for the travelling FSM feature.
-router.get('/by-state/:state', requireAuth, async (req, res, next) => {
+router.get('/by-state', requireAuth, async (req, res, next) => {
   try {
     const { profile } = req
-    const state = decodeURIComponent(req.params.state)
+    const state = req.query.state
 
     if (profile.role === 'admin') {
       return res.status(403).json({ error: 'Admins do not use the travelling feature' })
