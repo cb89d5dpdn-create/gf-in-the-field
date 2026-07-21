@@ -22,16 +22,12 @@ router.post('/', requireAuth, async (req, res, next) => {
     const { rsm_id, visit_date, location } = req.body
     if (!rsm_id || !visit_date) return res.status(400).json({ error: 'rsm_id and visit_date required' })
 
-    // Verify RSM belongs to org (admin can access any RSM, FSM only their own)
-    let rsmQuery = supabaseAdmin
+    // Verify RSM belongs to org — any FSM in the org can coach any RSM (visiting support)
+    const rsmQuery = supabaseAdmin
       .from('rsms')
       .select('id')
       .eq('id', rsm_id)
       .eq('org_id', profile.org_id)
-
-    if (profile.role !== 'admin') {
-      rsmQuery = rsmQuery.eq('fsm_id', profile.id)
-    }
 
     const { data: rsm, error: rsmError } = await rsmQuery.single()
 
