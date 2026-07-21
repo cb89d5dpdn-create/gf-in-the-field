@@ -114,7 +114,7 @@ export function Dashboard() {
   })
 
   // Visiting state RSMs query
-  const { data: visitingData, isLoading: visitingLoading } = useQuery({
+  const { data: visitingData, isLoading: visitingLoading, error: visitingError } = useQuery({
     queryKey: ['rsms-by-state', visitingState],
     queryFn: () => api.get(`/api/rsms/by-state?state=${encodeURIComponent(visitingState)}`),
     enabled: !!visitingState,
@@ -235,6 +235,8 @@ export function Dashboard() {
                   </div>
                   {visitingLoading ? (
                     <SkeletonList count={3} />
+                  ) : visitingError ? (
+                    <p className="text-red-500 text-sm py-4">Error: {visitingError.message}</p>
                   ) : visitingData?.rsms?.length === 0 ? (
                     <p className="text-gray-500 text-sm py-4">No RSMs found in {visitingState}.</p>
                   ) : (
