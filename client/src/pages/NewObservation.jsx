@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { Layout } from '../components/Layout'
 import { VoiceInput } from '../components/VoiceInput'
 import { api } from '../lib/api'
@@ -272,11 +272,14 @@ function StepReview({ observation, summary, onSummaryChange, onSend, sending }) 
 
 export function NewObservation() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { id: draftId } = useParams() // If present, we're continuing a draft
-  const [step, setStep] = useState(1)
+  // If navigated from the visiting RSM list, skip RSM selection
+  const preselectedRsm = location.state?.preselectedRsm || null
+  const [step, setStep] = useState(preselectedRsm ? 2 : 1)
+  const [selectedRSM, setSelectedRSM] = useState(preselectedRsm)
   const [rsms, setRSMs] = useState([])
   const [areas, setAreas] = useState([])
-  const [selectedRSM, setSelectedRSM] = useState(null)
   const [details, setDetails] = useState(null)
   const [observationId, setObservationId] = useState(null)
   const [scores, setScores] = useState({})

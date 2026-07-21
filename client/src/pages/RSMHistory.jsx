@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Layout } from '../components/Layout'
 import { api } from '../lib/api'
@@ -428,6 +428,8 @@ function DailySummaryReview({ summary, meta, onSummaryChange, onSend, onBack, se
 export function RSMHistory() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
+  const isVisiting = location.state?.visiting || false
   const queryClient = useQueryClient()
   const [selectedObs, setSelectedObs] = useState(null)
 
@@ -522,7 +524,7 @@ export function RSMHistory() {
         <button
           onClick={() => {
             if (selectMode) { setSelectMode(false); setSelectedIds(new Set()) }
-            else navigate('/')
+            else navigate('/', { replace: true })
           }}
           className="text-gray-500 hover:text-gray-800 min-h-0"
         >
@@ -562,6 +564,41 @@ export function RSMHistory() {
             : <ObservationDetail obs={selectedObs} onSent={handleSent} />
           }
         </>
+      ) : isVisiting && !selectedObs && !dailySummary ? (
+        // Visiting mode: show visiting banner + observations (this FSM's only) + start obs button
+        <div className="space-y-4">
+          <div className="bg-teal-50 border border-gf-teal rounded-xl px-4 py-3">
+            <p className="text-sm font-semibold text-gf-teal">✈️ Travelling visit</p>
+            <p className="text-xs text-gray-500 mt-0.5">Showing your sessions with {data?.rsm?.name} only</p>
+          </div>
+
+          <button
+            onClick={() => navigate('/observations/new', { state: { preselectedRsm: data?.rsm, visiting: true } })}
+            className="w-full bg-gf-teal text-white font-semibold py-4 rounded-xl hover:bg-gf-dark active:bg-gf-dark transition-colors text-base"
+          >
+            + Start New Observation
+          </button>
+
+          <div className="space-y-3">
+            {data?.observations?.length === 0 ? (
+              <p className="text-gray-500 text-sm text-center py-8">No observations with this RSM yet.</p>
+            ) : (
+              data?.observations?.map((obs) => (
+                <SwipeableObservation
+                  key={obs.id}
+                  obs={obs}
+                  isDraft={obs.status === 'draft'}
+                  onDelete={handleDelete}
+                  onClick={() => {
+                    if (obs.kind === 'work_behind') setSelectedObs(obs)
+                    else if (obs.status === 'draft') navigate(`/observations/${obs.id}/continue`)
+                    else setSelectedObs(obs)
+                  }}
+                />
+              ))
+            )}
+          </div>
+        </div>
       ) : dailySummary ? (
         <DailySummaryReview
           summary={summaryText}

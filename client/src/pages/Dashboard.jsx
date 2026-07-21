@@ -97,10 +97,13 @@ function FSMCard({ fsm, expanded, onToggle, onRSMClick }) {
   )
 }
 
+const AU_STATES = ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'ACT', 'TAS', 'NT']
+
 export function Dashboard() {
   const { profile, setProfile } = useAuth()
   const navigate = useNavigate()
   const [expandedFsms, setExpandedFsms] = useState(new Set())
+  const [visitingState, setVisitingState] = useState(null)
 
   // Use React Query for caching
   const { data, isLoading: loading, error } = useQuery({
@@ -112,10 +115,20 @@ export function Dashboard() {
     },
   })
 
+  // Visiting state RSMs query
+  const { data: visitingData, isLoading: visitingLoading } = useQuery({
+    queryKey: ['rsms-by-state', visitingState],
+    queryFn: () => api.get(`/api/rsms/by-state/${visitingState}`),
+    enabled: !!visitingState,
+  })
+
   // Calculate total RSM count for admin view
   const totalRsmCount = data?.fsms 
     ? data.fsms.reduce((sum, fsm) => sum + (fsm.rsms?.length || 0), 0)
     : data?.rsms?.length ?? 0
+
+  // States to show in pill buttons (all except the FSM's own state)
+  const otherStates = AU_STATES.filter(s => s !== data?.profile?.state)
 
   return (
     <Layout>
@@ -195,6 +208,52 @@ export function Dashboard() {
               )
             )}
           </div>
+
+          {/* Travelling FSM: state pill buttons — only for non-admin FSMs */}
+          {!data?.fsms && data?.profile?.state && (
+            <div className="mt-8">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Travelling to another state?</p>
+              <div className="flex flex-wrap gap-2">
+                {otherStates.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setVisitingState(visitingState === s ? null : s)}
+                    className={`px-4 py-2 rounded-full text-sm font-semibold border transition-colors ${
+                      visitingState === s
+                        ? 'bg-gf-teal text-white border-gf-teal'
+                        : 'bg-white text-gray-600 border-gray-300 hover:border-gf-teal hover:text-gf-teal'
+                    }`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+
+              {visitingState && (
+                <div className="mt-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-sm font-bold text-gf-teal">✈️ Travelling to {visitingState}</span>
+                    <span className="text-xs text-gray-400">· your sessions only</span>
+                  </div>
+                  {visitingLoading ? (
+                    <SkeletonList count={3} />
+                  ) : visitingData?.rsms?.length === 0 ? (
+                    <p className="text-gray-500 text-sm py-4">No RSMs found in {visitingState}.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {visitingData?.rsms?.map((rsm) => (
+                        <RSMCard
+                          key={rsm.id}
+                          rsm={rsm}
+                          onClick={() => navigate(`/rsms/${rsm.id}/history`, { state: { visiting: true, preselectedRsm: rsm } })}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ROGER branding footer */}
           <div className="mt-12 mb-6 flex justify-center">
