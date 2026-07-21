@@ -330,7 +330,8 @@ export function NewObservation() {
           }
         }
       } catch (e) {
-        toast.error(e.message)
+        // Don't show errors if RSM is already pre-selected (visiting flow)
+        if (!preselectedRsm) toast.error(e.message)
       }
     }
     loadData()

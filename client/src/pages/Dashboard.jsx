@@ -116,7 +116,7 @@ export function Dashboard() {
   // Visiting state RSMs query
   const { data: visitingData, isLoading: visitingLoading } = useQuery({
     queryKey: ['rsms-by-state', visitingState],
-    queryFn: () => api.get(`/api/rsms/by-state/${visitingState}`),
+    queryFn: () => api.get(`/api/rsms/by-state/${encodeURIComponent(visitingState)}`),
     enabled: !!visitingState,
   })
 

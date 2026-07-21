@@ -34,7 +34,7 @@ router.get('/', requireAuth, async (req, res, next) => {
 router.get('/by-state/:state', requireAuth, async (req, res, next) => {
   try {
     const { profile } = req
-    const { state } = req.params
+    const state = decodeURIComponent(req.params.state)
 
     if (profile.role === 'admin') {
       return res.status(403).json({ error: 'Admins do not use the travelling feature' })
