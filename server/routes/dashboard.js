@@ -161,7 +161,16 @@ router.get('/', requireAuth, async (req, res, next) => {
         .eq('fsm_id', profile.id)
         .in('status', ['sent', 'generated'])
 
-      res.json({ profile: { ...profile, ytd_count: ytdCount, mtd_count: mtdCount, wbo_count: wboCount || 0 }, rsms: enriched })
+      // Get distinct states for the travelling feature (all states except this FSM's own)
+      const { data: stateRows } = await supabaseAdmin
+        .from('rsms')
+        .select('state')
+        .eq('org_id', profile.org_id)
+        .neq('fsm_id', profile.id)
+
+      const otherStates = [...new Set((stateRows || []).map(r => r.state).filter(Boolean))].sort()
+
+      res.json({ profile: { ...profile, ytd_count: ytdCount, mtd_count: mtdCount, wbo_count: wboCount || 0 }, rsms: enriched, otherStates })
     }
   } catch (err) {
     next(err)

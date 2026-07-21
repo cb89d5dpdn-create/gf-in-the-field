@@ -97,8 +97,6 @@ function FSMCard({ fsm, expanded, onToggle, onRSMClick }) {
   )
 }
 
-const AU_STATES = ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'ACT', 'TAS', 'NT']
-
 export function Dashboard() {
   const { profile, setProfile } = useAuth()
   const navigate = useNavigate()
@@ -127,8 +125,8 @@ export function Dashboard() {
     ? data.fsms.reduce((sum, fsm) => sum + (fsm.rsms?.length || 0), 0)
     : data?.rsms?.length ?? 0
 
-  // States to show in pill buttons (all except the FSM's own state)
-  const otherStates = AU_STATES.filter(s => s !== data?.profile?.state)
+  // States to show in pill buttons — fetched from API (e.g. SA/NT, VIC/TAS)
+  const otherStates = data?.otherStates || []
 
   return (
     <Layout>
