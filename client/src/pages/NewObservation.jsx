@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { Layout } from '../components/Layout'
 import { VoiceInput } from '../components/VoiceInput'
 import { api } from '../lib/api'
@@ -273,6 +274,7 @@ function StepReview({ observation, summary, onSummaryChange, onSend, sending }) 
 export function NewObservation() {
   const navigate = useNavigate()
   const location = useLocation()
+  const queryClient = useQueryClient()
   const { id: draftId } = useParams() // If present, we're continuing a draft
   // If navigated from the visiting RSM list, skip RSM selection
   const preselectedRsm = location.state?.preselectedRsm || null
@@ -352,6 +354,8 @@ export function NewObservation() {
         location,
       })
       setObservationId(res.observation.id)
+      // Invalidate RSM history cache so visiting FSM sees their draft immediately on return
+      queryClient.invalidateQueries({ queryKey: ['rsm-history', selectedRSM.id] })
       setStep(3)
     } catch (e) {
       toast.error(e.message)

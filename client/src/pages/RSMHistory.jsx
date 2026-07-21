@@ -444,6 +444,8 @@ export function RSMHistory() {
   const { data, isLoading: loading, error } = useQuery({
     queryKey: ['rsm-history', id],
     queryFn: () => api.get(`/api/rsms/${id}/history`),
+    staleTime: 0,
+    refetchOnMount: 'always',
   })
 
   const refreshHistory = () => {
