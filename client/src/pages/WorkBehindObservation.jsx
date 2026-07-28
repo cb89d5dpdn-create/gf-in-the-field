@@ -221,7 +221,7 @@ function StepNotes({
         <VoiceInput
           value={overallComments}
           onChange={onOverallComments}
-          placeholder="Overall observations from today's visit... Key themes, standout moments, patterns across stores..."
+          placeholder="Overall observations from today's visit... Key themes, standout moments..."
           rows={4}
         />
         <p className="text-xs text-gray-500 mt-2">

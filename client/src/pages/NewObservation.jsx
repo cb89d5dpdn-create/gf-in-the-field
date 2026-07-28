@@ -143,7 +143,7 @@ function StepScoring({ areas, scores, comments, overallComments, onChange, onCom
         <VoiceInput
           value={overallComments}
           onChange={onOverallComment}
-          placeholder="Overall observations from today's visit... Key themes, standout moments, patterns across stores, coaching priorities..."
+          placeholder="Overall observations from today's visit... Key themes, standout moments, coaching priorities..."
           rows={4}
         />
         <p className="text-xs text-gray-500 mt-2">
