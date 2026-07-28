@@ -81,13 +81,13 @@ router.get('/', requireAuth, async (req, res, next) => {
             })
           )
 
-          // WBO count — only this FSM's own work behind observations
+          // WBO count — count all WBOs (draft = visit happened, even if summary not yet generated)
           const { count: wboCount } = await supabaseAdmin
             .from('work_behind_observations')
             .select('id', { count: 'exact', head: true })
             .eq('org_id', profile.org_id)
             .eq('fsm_id', fsm.id)
-            .in('status', ['sent', 'generated'])
+            .in('status', ['draft', 'sent', 'generated'])
 
           return { ...fsm, rsms: enrichedRsms, ytd_count: ytdCount, mtd_count: mtdCount, wbo_count: wboCount || 0 }
         })
@@ -153,13 +153,13 @@ router.get('/', requireAuth, async (req, res, next) => {
         })
       )
 
-      // WBO count for this FSM
+      // WBO count for this FSM — count all WBOs (draft = visit happened)
       const { count: wboCount } = await supabaseAdmin
         .from('work_behind_observations')
         .select('id', { count: 'exact', head: true })
         .eq('org_id', profile.org_id)
         .eq('fsm_id', profile.id)
-        .in('status', ['sent', 'generated'])
+        .in('status', ['draft', 'sent', 'generated'])
 
       // Get distinct states for the travelling feature (all states except this FSM's own)
       const { data: stateRows } = await supabaseAdmin
