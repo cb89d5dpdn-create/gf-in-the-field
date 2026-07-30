@@ -1,30 +1,72 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { supabase } from '../lib/supabase'
 import { GoodmanFielderLogo } from '../components/GoodmanFielderLogo'
 
+// view: 'login' | 'mfa' | 'reset'
 export function Login() {
   const { signIn, resetPassword } = useAuth()
   const navigate = useNavigate()
 
+  const [view, setView] = useState('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [mfaCode, setMfaCode] = useState('')
+  const [mfaFactorId, setMfaFactorId] = useState(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [resetSent, setResetSent] = useState(false)
-  const [showReset, setShowReset] = useState(false)
 
   const handleLogin = async (e) => {
     e.preventDefault()
     setError('')
     setLoading(true)
+
     const { error } = await signIn(email, password)
-    setLoading(false)
     if (error) {
+      setLoading(false)
       setError(error.message)
+      return
+    }
+
+    // Check if user has MFA enrolled — if so, require TOTP before proceeding
+    const { data } = await supabase.auth.mfa.listFactors()
+    const verifiedFactor = data?.totp?.find((f) => f.status === 'verified')
+
+    setLoading(false)
+
+    if (verifiedFactor) {
+      setMfaFactorId(verifiedFactor.id)
+      setView('mfa')
     } else {
       navigate('/')
+    }
+  }
+
+  const handleMfa = async (e) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+
+    try {
+      const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId: mfaFactorId })
+      if (challengeError) throw challengeError
+
+      const { error: verifyError } = await supabase.auth.mfa.verify({
+        factorId: mfaFactorId,
+        challengeId: challenge.id,
+        code: mfaCode,
+      })
+      if (verifyError) throw verifyError
+
+      navigate('/')
+    } catch (err) {
+      setError(err.message?.includes('invalid') ? 'Incorrect code — try again' : err.message)
+      setMfaCode('')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -51,7 +93,48 @@ export function Login() {
           </h1>
         </div>
 
-        {!showReset ? (
+        {view === 'mfa' ? (
+          <form onSubmit={handleMfa} className="space-y-5">
+            <div className="text-center">
+              <div className="w-12 h-12 bg-gf-teal/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                <svg className="w-6 h-6 text-gf-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              <p className="text-sm text-gray-600">Open your authenticator app and enter the 6-digit code.</p>
+            </div>
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
+                {error}
+              </div>
+            )}
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={6}
+              autoComplete="one-time-code"
+              value={mfaCode}
+              onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-center text-2xl font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-gf-teal focus:border-transparent"
+              placeholder="000000"
+              autoFocus
+            />
+            <button
+              type="submit"
+              disabled={loading || mfaCode.length !== 6}
+              className="w-full bg-gf-teal text-white font-semibold py-3 rounded-lg hover:bg-gf-dark disabled:opacity-50 transition-colors"
+            >
+              {loading ? 'Verifying...' : 'Verify'}
+            </button>
+            <div className="text-center">
+              <button type="button" onClick={() => { supabase.auth.signOut(); setView('login'); setMfaCode(''); setError('') }}
+                className="text-sm text-gray-500 hover:underline">
+                Back to login
+              </button>
+            </div>
+          </form>
+        ) : view === 'login' ? (
           <form onSubmit={handleLogin} className="space-y-4">
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
@@ -116,7 +199,7 @@ export function Login() {
             <div className="text-center">
               <button
                 type="button"
-                onClick={() => setShowReset(true)}
+                onClick={() => { setView('reset'); setError('') }}
                 className="text-sm text-gf-teal hover:underline min-h-0"
               >
                 Forgot password?
@@ -124,7 +207,7 @@ export function Login() {
             </div>
           </form>
         ) : (
-          <form onSubmit={handleReset} className="space-y-4">
+          <form onSubmit={handleReset} className="space-y-4"> {/* reset view */}
             <p className="text-sm text-gray-600 text-center">
               Enter your email and we&rsquo;ll send a reset link.
             </p>
@@ -159,7 +242,7 @@ export function Login() {
             <div className="text-center">
               <button
                 type="button"
-                onClick={() => { setShowReset(false); setResetSent(false); setError('') }}
+                onClick={() => { setView('login'); setResetSent(false); setError('') }}
                 className="text-sm text-gray-500 hover:underline min-h-0"
               >
                 Back to login
