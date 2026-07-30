@@ -1,3 +1,4 @@
+const jwt = require('jsonwebtoken')
 const { supabaseAdmin } = require('../lib/supabase')
 
 /**
@@ -11,6 +12,9 @@ async function requireAuth(req, res, next) {
   }
 
   const token = authHeader.slice(7)
+
+  // Decode JWT to extract claims (verification happens via Supabase getUser below)
+  const decoded = jwt.decode(token)
 
   // Verify JWT via Supabase
   const { data: { user }, error } = await supabaseAdmin.auth.getUser(token)
@@ -31,17 +35,42 @@ async function requireAuth(req, res, next) {
 
   req.user = user
   req.profile = profile
+  req.aal = decoded?.aal ?? null  // Authentication Assurance Level from JWT claims
   next()
 }
 
 /**
  * Requires the authenticated user to have role = 'admin'.
+ * Enforces MFA (AAL2) only for accounts that have enrolled a verified TOTP factor.
+ * Accounts without any MFA factors enrolled are allowed through (aal1) — this allows
+ * graceful onboarding: enroll at /mfa-setup, then enforcement kicks in automatically.
  * Must be used after requireAuth.
  */
-function requireAdmin(req, res, next) {
+async function requireAdmin(req, res, next) {
   if (req.profile?.role !== 'admin') {
     return res.status(403).json({ error: 'Admin access required' })
   }
+
+  try {
+    // Check if this user has any verified MFA factors enrolled
+    const { data, error } = await supabaseAdmin.auth.admin.listFactors({
+      userId: req.user.id,
+    })
+
+    const hasEnrolledMfa = !error && data?.factors?.some(
+      (f) => f.factor_type === 'totp' && f.status === 'verified'
+    )
+
+    // Only enforce aal2 if the account has MFA enrolled
+    // Accounts without MFA factors are allowed through (pending enrollment)
+    if (hasEnrolledMfa && req.aal !== 'aal2') {
+      return res.status(403).json({ error: 'Admin access requires multi-factor authentication. Please complete MFA verification.' })
+    }
+  } catch (err) {
+    // Non-blocking: if the factor check fails, log and allow through
+    console.error('MFA factor check failed (non-blocking):', err.message)
+  }
+
   next()
 }
 

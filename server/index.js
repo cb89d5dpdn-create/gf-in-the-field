@@ -2,11 +2,33 @@ require('dotenv').config()
 const express = require('express')
 const cors = require('cors')
 const helmet = require('helmet')
+const rateLimit = require('express-rate-limit')
 
 const app = express()
 
 // Security headers
 app.use(helmet())
+
+// Rate limiting
+// Global: 100 requests per 15 minutes per IP
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' },
+})
+app.use('/api/', globalLimiter)
+
+// Stricter limit on auth endpoints: 10 requests per 15 minutes per IP
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many login attempts, please try again later.' },
+})
+app.use('/api/auth/', authLimiter)
 
 // CORS — allow frontend origin
 const allowedOrigins = [

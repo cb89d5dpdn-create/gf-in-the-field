@@ -14,6 +14,7 @@ import { AdminUsers } from './pages/AdminUsers'
 import { LoginStats } from './pages/LoginStats'
 import { WorkBehindObservation } from './pages/WorkBehindObservation'
 import { AdminUsage } from './pages/AdminUsage'
+import { MfaSetup } from './pages/MfaSetup'
 
 // Create a client with caching
 const queryClient = new QueryClient({
@@ -45,6 +46,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <ChangePassword />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/mfa-setup"
+            element={
+              <ProtectedRoute>
+                <MfaSetup />
               </ProtectedRoute>
             }
           />
