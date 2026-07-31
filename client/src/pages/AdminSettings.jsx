@@ -187,15 +187,17 @@ function ObservationAreasTab() {
                   className="p-1.5 text-gray-400 hover:text-gf-teal hover:bg-gf-teal/10 rounded-lg transition-colors">
                   <IconEdit />
                 </button>
-                <button onClick={() => toggleActive(area)}
+                {/* Toggle switch */}
+                <button
+                  onClick={() => toggleActive(area)}
                   title={area.is_active ? 'Hide from users' : 'Show to users'}
-                  className={`p-1.5 rounded-lg transition-colors ${area.is_active ? 'text-green-500 hover:bg-green-50' : 'text-gray-300 hover:bg-gray-100'}`}>
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    {area.is_active
-                      ? <path d="M10 12a2 2 0 100-4 2 2 0 000 4z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      : <path fillRule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z M12.454 16.697L9.75 13.992a4 4 0 01-3.742-3.741L2.335 6.578A9.98 9.98 0 00.458 10c1.274 4.057 5.065 7 9.542 7 .847 0 1.669-.105 2.454-.303z" clipRule="evenodd" />
-                    }
-                  </svg>
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                    area.is_active ? 'bg-gf-teal' : 'bg-gray-200'
+                  }`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                    area.is_active ? 'translate-x-6' : 'translate-x-1'
+                  }`} />
                 </button>
               </div>
             </div>
