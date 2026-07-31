@@ -5,7 +5,7 @@ import { api } from '../lib/api'
 import toast from 'react-hot-toast'
 
 const GROUPS = ['Visit Prep & Data', 'In-Store']
-const TABS = ['Observation Areas', 'Organisation']
+const TABS = ['Observation Areas', 'Work Behind', 'Organisation']
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -256,6 +256,146 @@ function ObservationAreasTab() {
   )
 }
 
+// ─── Work Behind Tab ────────────────────────────────────────────────────────
+
+function WorkBehindTab() {
+  const qc = useQueryClient()
+  const [editingId, setEditingId] = useState(null)
+  const [editForm, setEditForm] = useState({})
+
+  const { data: sections = [], isLoading } = useQuery({
+    queryKey: ['settings-wb-sections'],
+    queryFn: () => api.get('/api/admin/settings/work-behind-sections'),
+  })
+
+  const patchSection = useMutation({
+    mutationFn: ({ id, ...updates }) => api.patch(`/api/admin/settings/work-behind-sections/${id}`, updates),
+    onSuccess: () => qc.invalidateQueries(['settings-wb-sections']),
+  })
+
+  const reorder = useMutation({
+    mutationFn: (items) => api.post('/api/admin/settings/work-behind-sections/reorder', { items }),
+    onSuccess: () => qc.invalidateQueries(['settings-wb-sections']),
+  })
+
+  const toggleActive = async (section) => {
+    await patchSection.mutateAsync({ id: section.id, is_active: !section.is_active })
+    toast.success(section.is_active ? 'Section hidden' : 'Section shown')
+  }
+
+  const saveEdit = async () => {
+    await patchSection.mutateAsync({ id: editingId, ...editForm })
+    toast.success('Saved')
+    setEditingId(null)
+  }
+
+  const moveSection = async (index, dir) => {
+    const sorted = [...sections].sort((a, b) => a.order_index - b.order_index)
+    const swapIndex = dir === 'up' ? index - 1 : index + 1
+    if (swapIndex < 0 || swapIndex >= sorted.length) return
+    const updated = sorted.map((s, i) => {
+      if (i === index) return { id: s.id, order_index: sorted[swapIndex].order_index }
+      if (i === swapIndex) return { id: s.id, order_index: sorted[index].order_index }
+      return { id: s.id, order_index: s.order_index }
+    })
+    await reorder.mutateAsync(updated)
+  }
+
+  const sorted = [...sections].sort((a, b) => a.order_index - b.order_index)
+
+  if (isLoading) return <div className="text-sm text-gray-400 py-8 text-center">Loading...</div>
+
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-gray-500">
+        The three sections that appear in Work Behind observations. Rename, reorder, or hide sections — changes apply immediately.
+      </p>
+
+      {sorted.map((section, index) => (
+        <div key={section.id} className={`border rounded-xl p-4 transition-opacity ${
+          section.is_active ? 'border-gray-200 bg-white' : 'border-gray-100 bg-gray-50 opacity-60'
+        }`}>
+          {editingId === section.id ? (
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-medium text-gray-500 mb-1 block">Section Label</label>
+                <input type="text" value={editForm.label}
+                  onChange={(e) => setEditForm({ ...editForm, label: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gf-teal"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-500 mb-1 block">Description</label>
+                <textarea value={editForm.description}
+                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  rows={2}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gf-teal resize-none"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button onClick={saveEdit}
+                  className="flex-1 bg-gf-teal text-white text-sm font-semibold py-2 rounded-lg hover:bg-gf-dark transition-colors">
+                  Save
+                </button>
+                <button onClick={() => setEditingId(null)}
+                  className="flex-1 border border-gray-200 text-gray-600 text-sm py-2 rounded-lg hover:bg-gray-50 transition-colors">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-start gap-3">
+              <div className="flex flex-col gap-0.5 pt-0.5">
+                <button onClick={() => moveSection(index, 'up')} disabled={index === 0}
+                  className="p-0.5 text-gray-400 hover:text-gray-600 disabled:opacity-20">
+                  <IconChevron dir="up" />
+                </button>
+                <button onClick={() => moveSection(index, 'down')} disabled={index === sorted.length - 1}
+                  className="p-0.5 text-gray-400 hover:text-gray-600 disabled:opacity-20">
+                  <IconChevron dir="down" />
+                </button>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-semibold text-gray-900">{section.label}</span>
+                  {!section.is_active && <span className="text-xs bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full">Hidden</span>}
+                </div>
+                {section.description && (
+                  <p className="text-xs text-gray-500 mt-1 leading-relaxed">{section.description}</p>
+                )}
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button onClick={() => { setEditingId(section.id); setEditForm({ label: section.label, description: section.description }) }}
+                  className="p-1.5 text-gray-400 hover:text-gf-teal hover:bg-gf-teal/10 rounded-lg transition-colors">
+                  <IconEdit />
+                </button>
+                <button
+                  onClick={() => toggleActive(section)}
+                  title={section.is_active ? 'Hide section' : 'Show section'}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                    section.is_active ? 'bg-gf-teal' : 'bg-gray-200'
+                  }`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                    section.is_active ? 'translate-x-6' : 'translate-x-1'
+                  }`} />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+
+      <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+        <p className="text-xs font-medium text-blue-800 mb-1">Note</p>
+        <p className="text-xs text-blue-700">
+          Work Behind has 3 fixed sections (Compliance, Store Hygiene, AOB). You can rename and reorder them. Adding or removing sections is on the roadmap.
+        </p>
+      </div>
+    </div>
+  )
+}
+
 // ─── Organisation Tab ─────────────────────────────────────────────────────────
 
 function OrganisationTab() {
@@ -354,6 +494,7 @@ export function AdminSettings() {
         </div>
 
         {activeTab === 'Observation Areas' && <ObservationAreasTab />}
+        {activeTab === 'Work Behind' && <WorkBehindTab />}
         {activeTab === 'Organisation' && <OrganisationTab />}
       </div>
     </Layout>

@@ -147,4 +147,59 @@ router.delete('/observation-areas/:id', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
+// ─── Work Behind Sections ─────────────────────────────────────────────────────
+
+// GET /api/admin/settings/work-behind-sections
+router.get('/work-behind-sections', async (req, res, next) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('work_behind_sections')
+      .select('*')
+      .eq('org_id', req.profile.org_id)
+      .order('order_index')
+    if (error) throw error
+    res.json(data)
+  } catch (err) { next(err) }
+})
+
+// PATCH /api/admin/settings/work-behind-sections/:id
+router.patch('/work-behind-sections/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params
+    const { label, description, is_active } = req.body
+    const updates = {}
+    if (label !== undefined) updates.label = label.trim()
+    if (description !== undefined) updates.description = description.trim()
+    if (is_active !== undefined) updates.is_active = is_active
+    if (!Object.keys(updates).length) return res.status(400).json({ error: 'No fields to update' })
+    const { data, error } = await supabaseAdmin
+      .from('work_behind_sections')
+      .update(updates)
+      .eq('id', id)
+      .eq('org_id', req.profile.org_id)
+      .select()
+      .single()
+    if (error) throw error
+    res.json(data)
+  } catch (err) { next(err) }
+})
+
+// POST /api/admin/settings/work-behind-sections/reorder
+router.post('/work-behind-sections/reorder', async (req, res, next) => {
+  try {
+    const { items } = req.body
+    if (!Array.isArray(items)) return res.status(400).json({ error: 'items array required' })
+    await Promise.all(
+      items.map(({ id, order_index }) =>
+        supabaseAdmin
+          .from('work_behind_sections')
+          .update({ order_index })
+          .eq('id', id)
+          .eq('org_id', req.profile.org_id)
+      )
+    )
+    res.json({ ok: true })
+  } catch (err) { next(err) }
+})
+
 module.exports = router
