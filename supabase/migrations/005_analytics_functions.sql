@@ -117,7 +117,7 @@ DECLARE
   v_rsms        json;
 BEGIN
   -- Median observation date (splits the dataset in half)
-  SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY visit_date)
+  SELECT PERCENTILE_DISC(0.5) WITHIN GROUP (ORDER BY visit_date)
     INTO v_median_date
   FROM observations
   WHERE status IN ('generated', 'sent')
