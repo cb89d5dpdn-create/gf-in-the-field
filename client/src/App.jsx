@@ -16,6 +16,7 @@ import { WorkBehindObservation } from './pages/WorkBehindObservation'
 import { AdminUsage } from './pages/AdminUsage'
 import { MfaSetup } from './pages/MfaSetup'
 import { AdminSettings } from './pages/AdminSettings'
+import { Analytics } from './pages/Analytics'
 
 // Create a client with caching
 const queryClient = new QueryClient({
@@ -135,6 +136,14 @@ function App() {
             element={
               <ProtectedRoute requireAdmin>
                 <AdminUsage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/analytics"
+            element={
+              <ProtectedRoute requireAdmin>
+                <Analytics />
               </ProtectedRoute>
             }
           />

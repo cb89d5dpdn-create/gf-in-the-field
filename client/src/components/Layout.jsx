@@ -92,6 +92,14 @@ export function Layout({ children }) {
                   ⚙️ Platform Settings
                 </Link>
 
+                <Link
+                  to="/admin/analytics"
+                  onClick={() => setMenuOpen(false)}
+                  className="block px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  📈 Progress &amp; Trends
+                </Link>
+
                 {isBen && (
                   <>
                     <Link
