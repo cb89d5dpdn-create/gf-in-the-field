@@ -588,6 +588,57 @@ router.get('/voice-profiles', async (req, res, next) => {
   }
 })
 
+// PUT /api/admin/voice-profiles/:fsmId — manually create or update an FSM's voice profile
+router.put('/voice-profiles/:fsmId', async (req, res, next) => {
+  try {
+    const { profile } = req
+    const { fsmId } = req.params
+    const { profile_text } = req.body
+
+    if (!profile_text || !profile_text.trim()) {
+      return res.status(400).json({ error: 'profile_text is required' })
+    }
+
+    // Confirm the FSM belongs to this admin's org before writing
+    const { data: fsm, error: fsmError } = await supabaseAdmin
+      .from('fsm_profiles')
+      .select('id, org_id')
+      .eq('id', fsmId)
+      .eq('org_id', profile.org_id)
+      .single()
+
+    if (fsmError || !fsm) return res.status(404).json({ error: 'FSM not found' })
+
+    // Preserve observations_analysed/gf_terms_detected if a row already exists,
+    // since a manual edit shouldn't erase what the auto-learning system tracked.
+    const { data: existing } = await supabaseAdmin
+      .from('fsm_voice_profiles')
+      .select('observations_analysed, gf_terms_detected')
+      .eq('fsm_id', fsmId)
+      .single()
+
+    const { data: updated, error: upsertError } = await supabaseAdmin
+      .from('fsm_voice_profiles')
+      .upsert({
+        fsm_id: fsmId,
+        org_id: profile.org_id,
+        profile_text,
+        observations_analysed: existing?.observations_analysed ?? 0,
+        gf_terms_detected: existing?.gf_terms_detected ?? null,
+        last_generated_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'fsm_id' })
+      .select()
+      .single()
+
+    if (upsertError) throw upsertError
+
+    res.json({ profile: updated })
+  } catch (err) {
+    next(err)
+  }
+})
+
 // GET /api/admin/usage — AI cost tracking (Ben only via client, but admin-gated server-side)
 router.get('/usage', async (req, res, next) => {
   try {

@@ -66,6 +66,56 @@ export function AdminUsers() {
     queryClient.invalidateQueries({ queryKey: ['admin-users'] })
   }
 
+  // Voice profile modal state
+  const [showVoiceModal, setShowVoiceModal] = useState(false)
+  const [voiceTargetFsm, setVoiceTargetFsm] = useState(null) // { fsm_id, fsm_name, state, role }
+  const [voiceProfileText, setVoiceProfileText] = useState('')
+  const [savingVoice, setSavingVoice] = useState(false)
+
+  const saveVoiceProfileMutation = useMutation({
+    mutationFn: async ({ fsmId, profileText }) => {
+      return api.put(`/api/admin/voice-profiles/${fsmId}`, { profile_text: profileText })
+    },
+    onSuccess: () => {
+      toast.success('Voice profile saved')
+      queryClient.invalidateQueries({ queryKey: ['voice-profiles'] })
+      setShowVoiceModal(false)
+      setVoiceTargetFsm(null)
+      setVoiceProfileText('')
+    },
+    onError: (e) => toast.error(e.message),
+    onSettled: () => setSavingVoice(false),
+  })
+
+  const handleAddVoiceProfile = () => {
+    // Only FSMs without an existing profile can be picked here
+    const existingIds = new Set((voiceData || []).map((p) => p.fsm_id))
+    const eligible = fsms.filter((f) => !existingIds.has(f.id))
+    setVoiceTargetFsm(eligible[0] ? { fsm_id: eligible[0].id, fsm_name: eligible[0].name, state: eligible[0].state, role: 'fsm', _eligible: eligible } : { _eligible: eligible })
+    setVoiceProfileText('')
+    setShowVoiceModal(true)
+  }
+
+  const handleEditVoiceProfile = (profile) => {
+    setVoiceTargetFsm({ fsm_id: profile.fsm_id, fsm_name: profile.fsm_name, state: profile.state, role: profile.role })
+    setVoiceProfileText(profile.profile_text || '')
+    setShowVoiceModal(true)
+  }
+
+  const handleSaveVoiceProfile = (e) => {
+    e.preventDefault()
+    if (!voiceTargetFsm?.fsm_id) {
+      toast.error('Select an FSM')
+      return
+    }
+    if (!voiceProfileText.trim()) {
+      toast.error('Profile text is required')
+      return
+    }
+    setSavingVoice(true)
+    saveVoiceProfileMutation.mutate({ fsmId: voiceTargetFsm.fsm_id, profileText: voiceProfileText })
+  }
+
   const handleAddAdmin = async (e) => {
     e.preventDefault()
     if (adminPassword.length < 8) {
@@ -307,6 +357,15 @@ export function AdminUsers() {
             </button>
           )}
 
+          {tab === 'voices' && fsms.length > 0 && (
+            <button
+              onClick={handleAddVoiceProfile}
+              className="w-full bg-gf-teal text-white font-semibold py-3 rounded-xl mb-6 hover:bg-gf-dark transition-colors"
+            >
+              + Add / Edit Voice Profile
+            </button>
+          )}
+
           {tab === 'admin' && (
             <div className="space-y-3">
               {admins.length === 0 ? (
@@ -444,6 +503,13 @@ export function AdminUsers() {
                         {profile.profile_text}
                       </div>
                     </details>
+
+                    <button
+                      onClick={() => handleEditVoiceProfile(profile)}
+                      className="text-gf-teal text-sm hover:underline font-medium mt-3"
+                    >
+                      Edit
+                    </button>
                   </div>
                 ))
               )}
@@ -924,6 +990,79 @@ export function AdminUsers() {
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Voice Profile Add/Edit Modal */}
+      {showVoiceModal && voiceTargetFsm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg font-bold text-gray-900 mb-4">
+              {voiceProfileText || !voiceTargetFsm._eligible ? 'Edit' : 'Add'} Voice Profile
+            </h2>
+
+            <form onSubmit={handleSaveVoiceProfile} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  FSM
+                </label>
+                {voiceTargetFsm._eligible ? (
+                  voiceTargetFsm._eligible.length === 0 ? (
+                    <p className="text-sm text-gray-500">Every FSM already has a voice profile. Use Edit on an existing one instead.</p>
+                  ) : (
+                    <select
+                      value={voiceTargetFsm.fsm_id || ''}
+                      onChange={(e) => {
+                        const chosen = voiceTargetFsm._eligible.find((f) => f.id === e.target.value)
+                        setVoiceTargetFsm({ ...voiceTargetFsm, fsm_id: chosen.id, fsm_name: chosen.name, state: chosen.state })
+                      }}
+                      className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-gf-teal"
+                    >
+                      {voiceTargetFsm._eligible.map((f) => (
+                        <option key={f.id} value={f.id}>{f.name} ({f.state})</option>
+                      ))}
+                    </select>
+                  )
+                ) : (
+                  <p className="font-semibold text-gray-900">{voiceTargetFsm.fsm_name} <span className="text-sm text-gray-500 font-normal">({voiceTargetFsm.state})</span></p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Voice Profile Text
+                </label>
+                <textarea
+                  required
+                  rows={16}
+                  value={voiceProfileText}
+                  onChange={(e) => setVoiceProfileText(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-3 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-gf-teal"
+                  placeholder="# VOICE PROFILE&#10;&#10;## 1. VOCABULARY & PHRASES&#10;..."
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  This overwrites the AI-generated profile. Auto-learning won't touch it again until it re-triggers on new observations.
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setShowVoiceModal(false); setVoiceTargetFsm(null); setVoiceProfileText('') }}
+                  className="flex-1 bg-gray-200 text-gray-700 font-semibold py-3 rounded-lg hover:bg-gray-300 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingVoice || (voiceTargetFsm._eligible && voiceTargetFsm._eligible.length === 0)}
+                  className="flex-1 bg-gf-teal text-white font-semibold py-3 rounded-lg hover:bg-gf-dark disabled:opacity-50 transition-colors"
+                >
+                  {savingVoice ? 'Saving...' : 'Save Voice Profile'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
